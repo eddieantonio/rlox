@@ -19,7 +19,7 @@ pub enum OpCode {
 pub struct Chunk {
     code: Vec<u8>,
     pub constants: ValueArray,
-    lines: Vec<usize>,
+    lines: Vec<LineNumberRun>,
 }
 
 /// A valid byte from a chunk. This byte can then be interpreted as required.
@@ -35,6 +35,16 @@ pub struct BytecodeEntry<'a> {
 pub struct WrittenOpcode<'a> {
     line: usize,
     provenance: &'a mut Chunk,
+}
+
+/// An entry of run-length encoded line numbers.
+/// Every entry signifies that the next [length] bytes have the same line number
+#[derive(Debug, Clone)]
+struct LineNumberRun {
+    /// The actual line number
+    line_number: usize,
+    /// The starting index in the table
+    length: usize,
 }
 
 ///////////////////////////////////////// Implementation //////////////////////////////////////////
@@ -78,7 +88,7 @@ impl Chunk {
 
     /// Returns the line number for whatever is at the given offset.
     pub fn line_number_for(&self, offset: usize) -> Option<usize> {
-        self.lines.get(offset).copied()
+        self.lines.get(offset).map(|run| run.line_number)
     }
 
     /// Returns the length of the byte stream.
@@ -94,10 +104,13 @@ impl Chunk {
     }
 
     /// Actually writes to the byte stream.
-    fn write(&mut self, payload: u8, line: usize) {
+    fn write(&mut self, payload: u8, line_number: usize) {
         debug_assert_eq!(self.code.len(), self.lines.len());
         self.code.push(payload);
-        self.lines.push(line)
+        self.lines.push(LineNumberRun {
+            line_number,
+            length: 1,
+        })
     }
 }
 
