@@ -76,6 +76,11 @@ impl Chunk {
         u8::try_from(self.constants.len() - 1).expect("Exceeded size available for u8")
     }
 
+    /// Returns the line number for whatever is at the given offset.
+    pub fn line_number_for(&self, offset: usize) -> Option<usize> {
+        self.lines.get(offset).copied()
+    }
+
     /// Returns the length of the byte stream.
     #[inline]
     pub fn len(&self) -> usize {
