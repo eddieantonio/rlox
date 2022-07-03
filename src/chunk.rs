@@ -22,7 +22,7 @@ with_try_from_u8! {
 pub struct Chunk {
     code: Vec<u8>,
     pub constants: ValueArray,
-    pub lines: Vec<usize>,
+    lines: Vec<usize>,
 }
 
 /// A valid byte from a chunk. This byte can then be interpreted as required.
@@ -77,6 +77,11 @@ impl Chunk {
     pub fn add_constant(&mut self, value: Value) -> u8 {
         self.constants.write(value);
         u8::try_from(self.constants.len() - 1).expect("Exceeded size available for u8")
+    }
+
+    /// Returns the line number for whatever is at the given offset.
+    pub fn line_number_for(&self, offset: usize) -> Option<usize> {
+        self.lines.get(offset).copied()
     }
 
     /// Returns the length of the byte stream.
