@@ -18,7 +18,7 @@ with_try_from_u8! {
 /// A chunk of code, with metadata.
 ///
 /// (See Crafting Interpreters, p. 244)
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Chunk {
     code: Vec<u8>,
     pub constants: ValueArray,
