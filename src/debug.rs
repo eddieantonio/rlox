@@ -35,6 +35,7 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
         // This is kind of silly in Rust, tbh
         Return => simple_instruction("OP_RETURN", offset),
         Constant => constant_instruction("OP_CONSTANT", c, offset),
+        ConstantLong => long_constant_instruction("OP_CONSTANT_LONG", c, offset),
         _ => {
             println!("Unknown opcode {instruction:?}");
             offset + 1
@@ -61,6 +62,20 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     println!("{index:4} '{value:?}'");
 
     offset + 2
+}
+
+fn long_constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+    print!("{name:>14}");
+
+    let (index, value) = chunk
+        .get_long(offset + 1)
+        .expect("ran out of bytes")
+        .resolve_constant_with_index()
+        .expect("Invalid constant index");
+
+    println!("{index:4} '{value:?}'");
+
+    offset + 4
 }
 
 //////////////////////////////////////////// Utilities ////////////////////////////////////////////
