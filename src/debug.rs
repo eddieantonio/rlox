@@ -19,7 +19,7 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
     if offset > 0 && at_same_line_as_previous_offset(c, offset) {
         print!("   | ");
     } else {
-        let line_no = c.lines.get(offset).unwrap();
+        let line_no = c.line_number_for(offset).unwrap();
         print!("{line_no:4} ")
     }
 
@@ -68,10 +68,10 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
 /// Returns true if the given offset is at the same line number as the previous line number.
 fn at_same_line_as_previous_offset(chunk: &Chunk, offset: usize) -> bool {
     assert!(offset > 0);
+
     chunk
-        .lines
-        .get(offset)
-        .zip(chunk.lines.get(offset - 1))
+        .line_number_for(offset)
+        .zip(chunk.line_number_for(offset - 1))
         .map(|(current_line, previous_line)| current_line == previous_line)
         .unwrap()
 }
