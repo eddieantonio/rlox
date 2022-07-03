@@ -12,6 +12,7 @@ with_try_from_u8! {
     pub enum OpCode {
         Return,
         Constant,
+        ConstantLong,
     }
 }
 
@@ -29,6 +30,13 @@ pub struct Chunk {
 #[derive(Clone, Copy)]
 pub struct BytecodeEntry<'a> {
     byte: u8,
+    provenance: &'a Chunk,
+}
+
+/// A valid 3-byte range from the byte stream. This can be dereferenced as a long constant index.
+#[derive(Clone, Copy)]
+pub struct LongConstantEntry<'a> {
+    constant: u32,
     provenance: &'a Chunk,
 }
 
@@ -58,6 +66,24 @@ impl Chunk {
         })
     }
 
+    /// Gets an entry for a long constant from the bytecode stream.
+    ///
+    /// Returns `Some(entry)` when the offset is in [0, self.len() - 4).
+    pub fn get_long(&self, offset: usize) -> Option<LongConstantEntry> {
+        self.code.get(offset..offset + 3).map(|_| {
+            let mut array = [0u8; 4];
+            array[1..4].copy_from_slice(&self.code[offset..offset + 3]);
+            assert_eq!(0, array[0]);
+
+            let constant = u32::from_be_bytes(array);
+
+            LongConstantEntry {
+                constant,
+                provenance: self,
+            }
+        })
+    }
+
     /// Append a single [OpCode] to the chunk.
     pub fn write_opcode(&mut self, opcode: OpCode, line: usize) -> WrittenOpcode {
         self.write(opcode as u8, line);
@@ -77,6 +103,17 @@ impl Chunk {
     pub fn add_constant(&mut self, value: Value) -> u8 {
         self.constants.write(value);
         u8::try_from(self.constants.len() - 1).expect("Exceeded size available for u8")
+    }
+
+    /// Adds a constant to the constant pool, and returns its index.
+    ///
+    /// # Panics
+    ///
+    /// Panics when adding the 257th constant or greater. Since the available indices are 0-255,
+    /// there is only room for 256 constants. Trying to add more than this will panic.
+    pub fn add_constant_unrestricted(&mut self, value: Value) -> u32 {
+        self.constants.write(value);
+        u32::try_from(self.constants.len() - 1).expect("Exceeded size available for u32")
     }
 
     /// Returns the length of the byte stream.
@@ -131,11 +168,46 @@ impl<'a> BytecodeEntry<'a> {
     }
 }
 
+impl<'a> LongConstantEntry<'a> {
+    /// Returns the byte as an index into the constant pool.
+    #[inline(always)]
+    pub fn as_constant_index(self) -> usize {
+        self.constant as usize
+    }
+
+    /// Yanks out a constant from the constant pool.
+    #[inline]
+    pub fn resolve_constant(self) -> Option<Value> {
+        self.provenance
+            .constants
+            .values
+            .get(self.as_constant_index())
+            .copied()
+    }
+
+    /// Same as [BytecodeEntry::resolve_constant], but returns (index, value).
+    #[inline]
+    pub fn resolve_constant_with_index(self) -> Option<(usize, Value)> {
+        self.resolve_constant()
+            .map(|value| (self.as_constant_index(), value))
+    }
+}
+
 impl<'a> WrittenOpcode<'a> {
     /// Consumes `self` and appends the operand to the byte stream for the last written instruction.
     #[inline]
     pub fn with_operand(self, index: u8) {
         self.provenance.write(index, self.line);
+    }
+
+    #[inline]
+    pub fn with_long_operand(self, index: u32) {
+        let bytes = index.to_be_bytes();
+        assert_eq!(0, bytes[0], "constant too big");
+
+        self.provenance.write(bytes[1], self.line);
+        self.provenance.write(bytes[2], self.line);
+        self.provenance.write(bytes[3], self.line);
     }
 }
 
@@ -165,5 +237,24 @@ mod test {
 
         // Return
         assert_eq!(Some(OpCode::Return), c.get(2).unwrap().as_opcode());
+    }
+
+    #[test]
+    fn test_op_constant_long() {
+        let mut c = Chunk::new();
+        let mut last_index = 0;
+        for i in 0..512 {
+            last_index = c.add_constant_unrestricted(f64::from(i))
+        }
+        assert_eq!(511, last_index);
+
+        c.write_opcode(OpCode::ConstantLong, 1)
+            .with_long_operand(last_index);
+        dbg!(&c);
+        assert_eq!(4, c.len());
+        assert_eq!(
+            Some(511.0),
+            c.get_long(1).and_then(|b| b.resolve_constant())
+        );
     }
 }
