@@ -19,7 +19,7 @@ pub enum OpCode {
 pub struct Chunk {
     code: Vec<u8>,
     pub constants: ValueArray,
-    pub lines: Vec<usize>,
+    lines: Vec<usize>,
 }
 
 /// A valid byte from a chunk. This byte can then be interpreted as required.
