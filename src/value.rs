@@ -1,9 +1,12 @@
+//! Representation of values in Lox.
+
 /// The only kind of value for now:
 pub type Value = f64;
 
-/// A whole bunch of values, slapped together. Useful for a constant pool.
-#[derive(Default)]
+/// A collection of values. Useful for a constant pool.
+#[derive(Default, Debug, Clone)]
 pub struct ValueArray {
+    // TODO: I copied the book, but I'm not convinced this struct is better than just a Vec<Value>.
     pub values: Vec<Value>,
 }
 
@@ -19,10 +22,12 @@ impl ValueArray {
         self.values.push(value)
     }
 
+    /// Returns how many values are in the pool.
     pub fn len(&self) -> usize {
         self.values.len()
     }
 
+    /// Returns true if there are no values.
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
