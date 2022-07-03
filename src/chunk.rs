@@ -88,7 +88,16 @@ impl Chunk {
 
     /// Returns the line number for whatever is at the given offset.
     pub fn line_number_for(&self, offset: usize) -> Option<usize> {
-        self.lines.get(offset).map(|run| run.line_number)
+        let mut base_offset = 0;
+        for run in self.lines.iter() {
+            if (base_offset..base_offset + run.length).contains(&offset) {
+                return Some(run.line_number);
+            }
+
+            base_offset += run.length;
+        }
+
+        None
     }
 
     /// Returns the length of the byte stream.
@@ -105,12 +114,39 @@ impl Chunk {
 
     /// Actually writes to the byte stream.
     fn write(&mut self, payload: u8, line_number: usize) {
-        debug_assert_eq!(self.code.len(), self.lines.len());
         self.code.push(payload);
-        self.lines.push(LineNumberRun {
+
+        // Figure out the line number
+        if let Some(run) = self.previous_line_number_run() {
+            if run.line_number == line_number {
+                run.increment()
+            } else {
+                // Must create new run
+                self.lines.push(LineNumberRun::new(line_number))
+            }
+        } else {
+            assert!(self.lines.is_empty());
+            self.lines.push(LineNumberRun::new(line_number))
+        }
+    }
+
+    /// Return the last line number run
+    #[inline(always)]
+    fn previous_line_number_run(&mut self) -> Option<&mut LineNumberRun> {
+        self.lines.iter_mut().rev().next()
+    }
+}
+
+impl LineNumberRun {
+    fn new(line_number: usize) -> Self {
+        Self {
             line_number,
             length: 1,
-        })
+        }
+    }
+
+    fn increment(&mut self) {
+        self.length += 1;
     }
 }
 
@@ -193,5 +229,34 @@ mod test {
 
         // Return
         assert_eq!(Some(OpCode::Return), c.get(2).unwrap().as_opcode());
+    }
+
+    #[test]
+    fn line_numbers() {
+        let mut c = Chunk::new();
+
+        let idx = c.add_constant(1.2);
+
+        // Write a bunch of opcodes on the same line.
+        c.write_opcode(OpCode::Constant, 1).with_operand(idx);
+        c.write_opcode(OpCode::Constant, 1).with_operand(idx);
+        c.write_opcode(OpCode::Constant, 1).with_operand(idx);
+        assert_eq!(6, c.len());
+
+        // Write a bunch of opcodes on a different line.
+        c.write_opcode(OpCode::Constant, 2).with_operand(idx);
+        c.write_opcode(OpCode::Constant, 2).with_operand(idx);
+        c.write_opcode(OpCode::Constant, 2).with_operand(idx);
+        c.write_opcode(OpCode::Constant, 2).with_operand(idx);
+        assert_eq!(14, c.len());
+
+        // Write an opcode on yet a different line
+        c.write_opcode(OpCode::Return, 4);
+        assert_eq!(15, c.len());
+
+        // Check line numbers.
+        assert_eq!(Some(1), c.line_number_for(2));
+        assert_eq!(Some(2), c.line_number_for(10));
+        assert_eq!(Some(4), c.line_number_for(c.len() - 1));
     }
 }
