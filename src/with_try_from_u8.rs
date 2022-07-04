@@ -1,6 +1,6 @@
 /// Derives a TryFrom<u8> implementation for the enum.
 ///
-/// Macro adapted from: https://stackoverflow.com/a/57578431/6626414
+/// Macro adapted from: <https://stackoverflow.com/a/57578431/6626414>
 #[macro_export]
 macro_rules! with_try_from_u8 {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {

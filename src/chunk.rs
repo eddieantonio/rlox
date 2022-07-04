@@ -32,7 +32,7 @@ pub struct BytecodeEntry<'a> {
     provenance: &'a Chunk,
 }
 
-/// An [Opcode] that has already been written to the bytestream.
+/// An [OpCode] that has already been written to the bytestream.
 ///
 /// This opcode can be augmented with an additional operand.
 pub struct WrittenOpcode<'a> {
