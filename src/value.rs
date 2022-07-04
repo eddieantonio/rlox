@@ -1,7 +1,10 @@
 //! Representation of values in Lox.
 
+extern crate static_assertions as sa;
+
 /// The only kind of value for now:
 pub type Value = f64;
+sa::assert_impl_all!(Value: Copy);
 
 /// A collection of values. Useful for a constant pool.
 #[derive(Default, Debug, Clone)]
