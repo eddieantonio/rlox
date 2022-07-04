@@ -43,7 +43,7 @@ with_try_from_u8! {
 #[derive(Default, Debug)]
 pub struct Chunk {
     code: Vec<u8>,
-    pub constants: ValueArray,
+    constants: ValueArray,
     lines: Vec<usize>,
 }
 
@@ -200,11 +200,7 @@ impl<'a> BytecodeEntry<'a> {
     ///  - [BytecodeEntry::as_constant_index()]
     #[inline]
     pub fn resolve_constant(self) -> Option<Value> {
-        self.provenance
-            .constants
-            .values
-            .get(self.as_constant_index())
-            .copied()
+        self.provenance.constants.get(self.as_constant_index())
     }
 
     /// Same as [BytecodeEntry::resolve_constant], but returns (index, value).
