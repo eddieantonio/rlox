@@ -1,4 +1,19 @@
-//! Contains a [Chunk] of [OpCode].
+//! Organizes bytecode into a [Chunk] of [OpCode]s.
+//!
+//! # Example
+//!
+//! ```
+//! use rlox::prelude::*;
+//!
+//! // Create a chunk:
+//! let mut chunk = Chunk::new();
+//! let constant_index = chunk.add_constant(1.2);
+//! chunk.write_opcode(OpCode::Constant, 1).with_operand(constant_index);
+//! chunk.write_opcode(OpCode::Return, 1);
+//!
+//! // It should be 3 bytes:
+//! assert_eq!(3, chunk.len());
+//! ```
 
 use crate::value::{Value, ValueArray};
 use crate::with_try_from_u8;
@@ -15,7 +30,14 @@ with_try_from_u8! {
     }
 }
 
-/// A chunk of code, with metadata.
+/// A chunk of bytecode, including a constant pool.
+///
+/// The _byte stream_ contains both [OpCode]s and operands, which are encoded serially, inline.
+/// Valid bytes from the byte stream can be obtained using [Chunk::get()].
+///
+/// Arbitrary bytes **cannot** be written to the byte stream. Instead, one must write an [OpCode]
+/// with [Chunk::write_opcode()], and then use the returned [WrittenOpcode] to write additional
+/// operands (which may be arbitrary bytes).
 ///
 /// (See Crafting Interpreters, p. 244)
 #[derive(Default, Debug)]
@@ -25,7 +47,36 @@ pub struct Chunk {
     lines: Vec<usize>,
 }
 
-/// A valid byte from a chunk. This byte can then be interpreted as required.
+/// A valid byte from a chunk, obtained using [Chunk::get()].
+///
+/// You may then apply methods to interpret the byte that is required in the given context.
+///
+/// # Examples
+///
+/// ```
+/// # use rlox::prelude::*;
+/// let mut chunk = Chunk::new();
+///
+/// // Write a valid program into the chunk:
+/// assert_eq!(0, chunk.add_constant(1.0));
+/// chunk.write_opcode(OpCode::Constant, 1).with_operand(0);
+///
+/// // Get a valid byte from the chunk:
+/// let byte = chunk.get(0);
+/// assert!(byte.is_some());
+///
+/// // Treat it as an OpCode:
+/// let byte = byte.unwrap();
+/// assert_eq!(Some(OpCode::Constant), byte.as_opcode());
+///
+/// // Get another valid byte from the input stream:
+/// let byte = chunk.get(1);
+/// assert!(byte.is_some());
+///
+/// // Treat it as a constant index:
+/// let byte = byte.unwrap();
+/// assert_eq!(0, byte.as_constant_index());
+/// ```
 #[derive(Clone, Copy)]
 pub struct BytecodeEntry<'a> {
     byte: u8,
@@ -34,7 +85,18 @@ pub struct BytecodeEntry<'a> {
 
 /// An [OpCode] that has already been written to the bytestream.
 ///
-/// This opcode can be augmented with an additional operand.
+/// The byte stream can be augmented with an additional operand.
+///
+/// # Examples
+///
+/// ```
+/// # use rlox::prelude::*;
+/// let mut chunk = Chunk::new();
+///
+/// // Write an opcode and its operand to the byte stream:
+/// chunk.write_opcode(OpCode::Constant, 1).with_operand(0);
+/// assert_eq!(2, chunk.len());
+/// ```
 pub struct WrittenOpcode<'a> {
     line: usize,
     provenance: &'a mut Chunk,
@@ -48,9 +110,10 @@ impl Chunk {
         Chunk::default()
     }
 
-    /// Get an entry from the bytecode stream.
+    /// Get a single byte from the byte stream. See [BytecodeEntry] for how this byte can be
+    /// interpreted.
     ///
-    /// Returns `Some(entry)` when the offset is in [0, self.len()).
+    /// Returns `Some(entry)` when the offset is in `(0..self.len())`; `None` otherwise.
     pub fn get(&self, offset: usize) -> Option<BytecodeEntry> {
         self.code.get(offset).copied().map(|byte| BytecodeEntry {
             byte,
@@ -59,6 +122,9 @@ impl Chunk {
     }
 
     /// Append a single [OpCode] to the chunk.
+    ///
+    /// Returns a [WrittenOpcode], which is a handle that can be used to append additional
+    /// operands to the byte stream.
     pub fn write_opcode(&mut self, opcode: OpCode, line: usize) -> WrittenOpcode {
         self.write(opcode as u8, line);
 
@@ -105,7 +171,10 @@ impl Chunk {
 }
 
 impl<'a> BytecodeEntry<'a> {
-    /// Returns the byte as an index into the constant pool.
+    /// Returns the byte interpreted as an index into the constant pool.
+    ///
+    /// This method never fails, as this method does not check whether the index is a _valid_ index
+    /// into the constant pool.
     #[inline(always)]
     pub fn as_constant_index(self) -> usize {
         self.byte as usize
@@ -119,6 +188,16 @@ impl<'a> BytecodeEntry<'a> {
     }
 
     /// Yanks out a constant from the constant pool.
+    ///
+    /// Interprets the byte as an index into this entry's [Chunk]'s constant pool, and returns the
+    /// assosiated value.
+    ///
+    /// Returns `Some(value)` if the index is a valid entry in the constants pool. `None`
+    /// otherwise.
+    ///
+    /// # See also
+    ///
+    ///  - [BytecodeEntry::as_constant_index()]
     #[inline]
     pub fn resolve_constant(self) -> Option<Value> {
         self.provenance
