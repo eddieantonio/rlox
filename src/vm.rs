@@ -79,14 +79,14 @@ impl<'a> VM<'a> {
                 Some(Multiply) => self.binary_op(|a, b| a * b),
                 Some(Divide) => self.binary_op(|a, b| a / b),
                 Some(Negate) => {
-                    let value = self.pop().expect("value stack is empty");
+                    let value = self.pop();
                     self.push(match value {
                         Value::Number(num) => (-num).into(),
                     });
                     self.ip += 1;
                 }
                 Some(Return) => {
-                    let return_value = self.pop().expect("value stack is empty");
+                    let return_value = self.pop();
                     println!("{return_value}");
 
                     return Ok(());
@@ -101,8 +101,8 @@ impl<'a> VM<'a> {
     where
         F: Fn(f64, f64) -> f64,
     {
-        let rhs = self.pop().expect("value stack empty (right-hand side)");
-        let lhs = self.pop().expect("value stack empty (left-hand side)");
+        let rhs = self.pop();
+        let lhs = self.pop();
 
         use Value::Number;
         match (lhs, rhs) {
@@ -118,8 +118,14 @@ impl<'a> VM<'a> {
     }
 
     /// Pops and returns the top [Value] on the value stack.
-    fn pop(&mut self) -> Option<Value> {
-        self.stack.pop()
+    ///
+    /// # Panics
+    ///
+    /// Panics when the value stack is empty. Given well-formed Lox bytecode, a pop cannot occur
+    /// when the value stack is empty; therefore the interpreter panics if it is in this state.
+    #[inline(always)]
+    fn pop(&mut self) -> Value {
+        self.stack.pop().expect("value stack is empty")
     }
 }
 
