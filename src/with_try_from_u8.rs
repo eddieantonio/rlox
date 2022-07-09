@@ -1,4 +1,4 @@
-/// Derives a TryFrom<u8> implementation for the enum.
+/// Derives a [TryFrom<u8>] implementation for the enum.
 ///
 /// Macro adapted from: <https://stackoverflow.com/a/57578431/6626414>
 #[macro_export]

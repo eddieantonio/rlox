@@ -1,13 +1,20 @@
+//! The bytecode virtual machine.
 use thiserror::Error;
 
 use crate::prelude::{Chunk, OpCode, Value};
 
+/// Used as the minimum capacity of the stack.
+/// Since we're using a growable [Vec], the stack size can be arbitrarily large.
 const STACK_SIZE: usize = 256;
 
+/// The type returned by [VM::interpret].
 pub type Result<T> = std::result::Result<T, InterpretationError>;
 
+/// Maintains state for the Lox virtual machine.
 pub struct VM<'a> {
     /// Code to execute
+    // TODO: I'm not confident this needs to be in here...?
+    // TODO: In Rust, this kind of just makes things more annoying.
     chunk: Option<&'a Chunk>,
     /// Instruction pointer --- index into the chunk for the next opcode to be executed
     // TODO: convert to slice?
@@ -16,15 +23,20 @@ pub struct VM<'a> {
     stack: Vec<Value>,
 }
 
+/// Any error that can occur during interpretation.
 #[derive(Debug, Error)]
 pub enum InterpretationError {
+    /// A compile-time error, such as a syntax error, or a name error.
     #[error("compile-time error")]
     CompileError,
+    /// A runtime error, such as a type error or exception.
     #[error("runtime error")]
     RuntimeError,
+    // TODO: add a variant for "invalid bytecode"?
 }
 
 impl<'a> VM<'a> {
+    /// Interpret some the Lox bytecode in the given [Chunk].
     pub fn interpret(&'a mut self, chunk: &'a Chunk) -> Result<()> {
         self.chunk = Some(chunk);
         self.ip = 0;
@@ -32,6 +44,7 @@ impl<'a> VM<'a> {
         self.run()
     }
 
+    /// The main opcode interpreter loop.
     fn run(&mut self) -> Result<()> {
         use OpCode::*;
         let chunk = self.chunk.expect("I should have a valid chunk right now");
@@ -83,6 +96,7 @@ impl<'a> VM<'a> {
         }
     }
 
+    /// Pops two operands on the stack to perform a binary operation.
     fn binary_op<F>(&mut self, op: F)
     where
         F: Fn(f64, f64) -> f64,
@@ -98,10 +112,12 @@ impl<'a> VM<'a> {
         self.ip += 1;
     }
 
+    /// Pushes a [Value] on to the value stack.
     fn push(&mut self, value: Value) {
         self.stack.push(value);
     }
 
+    /// Pops and returns the top [Value] on the value stack.
     fn pop(&mut self) -> Option<Value> {
         self.stack.pop()
     }
@@ -109,6 +125,7 @@ impl<'a> VM<'a> {
 
 impl<'a> Default for VM<'a> {
     fn default() -> Self {
+        // Create a VM with the value stack pre-allocated to the minimum size.
         VM {
             chunk: None,
             ip: 0,

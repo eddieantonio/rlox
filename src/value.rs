@@ -2,19 +2,21 @@
 
 extern crate static_assertions as sa;
 
-/// Any valid Lox value.
+/// A Lox runtime value.
 ///
 /// Currently, only numbers ([f64]) are supported.
 ///
-/// You can create a Lox value from some Rust types:
+/// You can create a Lox value from its equivalent Rust type:
 ///
 /// ```
 /// # use rlox::value::Value;
-/// let v: Value = 4.0f64.into();
-/// assert_eq!("4".to_owned(), v.to_string());
+/// let float: f64 = 0.5;
+/// let v: Value = float.into();
+/// assert_eq!("0.5".to_owned(), v.to_string());
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Value {
+    /// All numbers in Lox are 64-bit floating point.
     Number(f64),
 }
 sa::assert_impl_all!(Value: Copy);
