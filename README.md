@@ -19,3 +19,19 @@ See also: my Java implementation, [jlox][].
 # Run
 
     cargo run
+
+# Cargo Features
+
+ - `trace_execution` — if compiled with `trace_execution`, there will be
+   verbose debugging printed for every opcode executed.
+
+       cargo run --features=trace_execution
+
+# Test driven development
+
+I hack on this iteratively by combining [`just`][just] with [`entr`][entr]:
+
+    git ls-files | entr -c just tdd
+
+[just]: https://github.com/casey/just
+[entr]: https://eradman.com/entrproject/
