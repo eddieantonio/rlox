@@ -7,7 +7,7 @@
 //!
 //! // Create a chunk:
 //! let mut chunk = Chunk::new();
-//! let constant_index = chunk.add_constant(1.2);
+//! let constant_index = chunk.add_constant(1.2.into());
 //! chunk.write_opcode(OpCode::Constant, 1).with_operand(constant_index);
 //! chunk.write_opcode(OpCode::Return, 1);
 //!
@@ -58,7 +58,7 @@ pub struct Chunk {
 /// let mut chunk = Chunk::new();
 ///
 /// // Write a valid program into the chunk:
-/// assert_eq!(0, chunk.add_constant(1.0));
+/// assert_eq!(0, chunk.add_constant(1.0.into()));
 /// chunk.write_opcode(OpCode::Constant, 1).with_operand(0);
 ///
 /// // Get a valid byte from the chunk:
@@ -232,7 +232,7 @@ mod test {
     #[test]
     fn mess_around_with_bytecode() {
         let mut c = Chunk::new();
-        let i = c.add_constant(1.0);
+        let i = c.add_constant(1.0.into());
         c.write_opcode(OpCode::Constant, 123).with_operand(i);
         c.write_opcode(OpCode::Return, 123);
 
@@ -240,8 +240,9 @@ mod test {
 
         // Constant
         assert_eq!(Some(OpCode::Constant), c.get(0).unwrap().as_opcode());
-        assert_eq!(Some(0), c.get(1).map(|b| b.as_constant_index()));
-        assert_eq!(Some(1.0), c.get(1).and_then(|b| b.resolve_constant()));
+        let operand = c.get(1);
+        assert_eq!(Some(0), operand.map(|b| b.as_constant_index()));
+        assert_eq!(Some(1.0.into()), operand.and_then(|b| b.resolve_constant()));
 
         // Return
         assert_eq!(Some(OpCode::Return), c.get(2).unwrap().as_opcode());

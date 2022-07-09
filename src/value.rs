@@ -2,8 +2,21 @@
 
 extern crate static_assertions as sa;
 
-/// The only kind of value for now:
-pub type Value = f64;
+/// Any valid Lox value.
+///
+/// Currently, only numbers ([f64]) are supported.
+///
+/// You can create a Lox value from some Rust types:
+///
+/// ```
+/// # use rlox::value::Value;
+/// let v: Value = 4.0f64.into();
+/// assert_eq!("4".to_owned(), v.to_string());
+/// ```
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Value {
+    Number(f64),
+}
 sa::assert_impl_all!(Value: Copy);
 
 /// A collection of values. Useful for a constant pool.
@@ -11,6 +24,21 @@ sa::assert_impl_all!(Value: Copy);
 pub struct ValueArray {
     // TODO: I copied the book, but I'm not convinced this struct is better than just a Vec<Value>.
     values: Vec<Value>,
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Value::Number(num) => write!(f, "{num}"),
+        }
+    }
+}
+
+// Convert any Rust float into a Lox value.
+impl From<f64> for Value {
+    fn from(float: f64) -> Value {
+        Value::Number(float)
+    }
 }
 
 impl ValueArray {
