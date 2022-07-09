@@ -26,6 +26,11 @@ with_try_from_u8! {
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     pub enum OpCode {
         Return,
+        Add,
+        Subtract,
+        Multiply,
+        Divide,
+        Negate,
         Constant,
     }
 }

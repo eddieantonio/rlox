@@ -52,12 +52,6 @@ impl<'a> VM<'a> {
                 .as_opcode();
 
             match opcode {
-                Some(Return) => {
-                    let return_value = self.pop().expect("value stack is empty");
-                    println!("{return_value}");
-
-                    return Ok(());
-                }
                 Some(Constant) => {
                     let constant = chunk
                         .get(self.ip + 1)
@@ -67,9 +61,41 @@ impl<'a> VM<'a> {
                     self.push(constant);
                     self.ip += 2;
                 }
+                Some(Add) => self.binary_op(|a, b| a + b),
+                Some(Subtract) => self.binary_op(|a, b| a - b),
+                Some(Multiply) => self.binary_op(|a, b| a * b),
+                Some(Divide) => self.binary_op(|a, b| a / b),
+                Some(Negate) => {
+                    let value = self.pop().expect("value stack is empty");
+                    self.push(match value {
+                        Value::Number(num) => (-num).into(),
+                    });
+                    self.ip += 1;
+                }
+                Some(Return) => {
+                    let return_value = self.pop().expect("value stack is empty");
+                    println!("{return_value}");
+
+                    return Ok(());
+                }
                 None => panic!("tried to get an invalid opcode at {}", self.ip),
             }
         }
+    }
+
+    fn binary_op<F>(&mut self, op: F)
+    where
+        F: Fn(f64, f64) -> f64,
+    {
+        let rhs = self.pop().expect("value stack empty (right-hand side)");
+        let lhs = self.pop().expect("value stack empty (left-hand side)");
+
+        use Value::Number;
+        match (lhs, rhs) {
+            (Number(a), Number(b)) => self.push(op(a, b).into()),
+        }
+
+        self.ip += 1;
     }
 
     fn push(&mut self, value: Value) {

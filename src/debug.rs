@@ -33,12 +33,13 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
     #[allow(unreachable_patterns)]
     match instruction {
         // This is kind of silly in Rust, tbh
-        Return => simple_instruction("OP_RETURN", offset),
         Constant => constant_instruction("OP_CONSTANT", c, offset),
-        _ => {
-            println!("Unknown opcode {instruction:?}");
-            offset + 1
-        }
+        Add => simple_instruction("OP_ADD", offset),
+        Subtract => simple_instruction("OP_SUBTRACT", offset),
+        Multiply => simple_instruction("OP_MULTIPLY", offset),
+        Divide => simple_instruction("OP_DIVIDE", offset),
+        Negate => simple_instruction("OP_NEGATE", offset),
+        Return => simple_instruction("OP_RETURN", offset),
     }
 }
 
