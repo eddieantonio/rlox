@@ -71,12 +71,17 @@ impl<'a> VM<'a> {
 
         loop {
             if cfg!(feature = "trace_execution") {
+                use crate::debug::disassemble_instruction;
+
+                // Prints the current stack:
                 print!("        ");
                 for value in self.stack.iter() {
                     print!("[ {value:?} ]")
                 }
                 println!();
-                trace_instruction(chunk, self.ip);
+
+                // Print the next instruction:
+                disassemble_instruction(chunk, self.ip);
             }
 
             let opcode = next_bytecode!(self, chunk)
@@ -152,16 +157,4 @@ impl<'a> Default for VM<'a> {
             stack: Vec::with_capacity(STACK_SIZE),
         }
     }
-}
-
-#[cfg(feature = "trace_execution")]
-fn trace_instruction(chunk: &Chunk, ip: usize) {
-    use crate::debug::disassemble_instruction;
-    disassemble_instruction(chunk, ip);
-}
-
-#[cfg(not(feature = "trace_execution"))]
-#[inline(always)]
-fn trace_instruction(_chunk: &Chunk, _ip: usize) {
-    // do nothing
 }
