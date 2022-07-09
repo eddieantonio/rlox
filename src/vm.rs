@@ -35,6 +35,26 @@ pub enum InterpretationError {
     // TODO: add a variant for "invalid bytecode"?
 }
 
+/// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
+///
+/// Note: use [current_ip] to get the "current" value of the instruction pointer being executed
+/// right now.
+macro_rules! next_bytecode {
+    ($self: ident, $chunk: ident) => {{
+        let byte = $chunk.get($self.ip);
+        $self.ip += 1;
+        byte
+    }};
+}
+
+/// Gets the value of the current instruction pointer. To be used in conjunction with
+/// [next_bytecode].
+macro_rules! current_ip {
+    ($self: ident) => {
+        $self.ip - 1
+    };
+}
+
 impl<'a> VM<'a> {
     /// Interpret some the Lox bytecode in the given [Chunk].
     pub fn interpret(&'a mut self, chunk: &'a Chunk) -> Result<()> {
@@ -59,20 +79,17 @@ impl<'a> VM<'a> {
                 trace_instruction(chunk, self.ip);
             }
 
-            let opcode = chunk
-                .get(self.ip)
+            let opcode = next_bytecode!(self, chunk)
                 .expect("I have an instruction pointer within range")
                 .as_opcode();
 
             match opcode {
                 Some(Constant) => {
-                    let constant = chunk
-                        .get(self.ip + 1)
+                    let constant = next_bytecode!(self, chunk)
                         .expect("there should be an operand")
                         .resolve_constant()
                         .expect("there should be a constant at this index");
                     self.push(constant);
-                    self.ip += 2;
                 }
                 Some(Add) => self.binary_op(|a, b| a + b),
                 Some(Subtract) => self.binary_op(|a, b| a - b),
@@ -83,7 +100,6 @@ impl<'a> VM<'a> {
                     self.push(match value {
                         Value::Number(num) => (-num).into(),
                     });
-                    self.ip += 1;
                 }
                 Some(Return) => {
                     let return_value = self.pop();
@@ -91,7 +107,7 @@ impl<'a> VM<'a> {
 
                     return Ok(());
                 }
-                None => panic!("tried to get an invalid opcode at {}", self.ip),
+                None => panic!("fetched invalid opcode at {}", current_ip!(self)),
             }
         }
     }
@@ -108,8 +124,6 @@ impl<'a> VM<'a> {
         match (lhs, rhs) {
             (Number(a), Number(b)) => self.push(op(a, b).into()),
         }
-
-        self.ip += 1;
     }
 
     /// Pushes a [Value] on to the value stack.
