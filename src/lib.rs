@@ -9,6 +9,7 @@
 pub mod chunk;
 pub mod debug;
 pub mod value;
+pub mod vm;
 
 mod with_try_from_u8;
 
@@ -20,4 +21,5 @@ mod with_try_from_u8;
 pub mod prelude {
     pub use crate::chunk::{Chunk, OpCode};
     pub use crate::value::Value;
+    pub use crate::vm::VM;
 }
