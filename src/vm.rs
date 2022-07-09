@@ -11,11 +11,7 @@ const STACK_SIZE: usize = 256;
 pub type Result<T> = std::result::Result<T, InterpretationError>;
 
 /// Maintains state for the Lox virtual machine.
-pub struct VM<'a> {
-    /// Code to execute
-    // TODO: I'm not confident this needs to be in here...?
-    // TODO: In Rust, this kind of just makes things more annoying.
-    chunk: Option<&'a Chunk>,
+pub struct VM {
     /// Instruction pointer --- index into the chunk for the next opcode to be executed
     // TODO: convert to slice?
     ip: usize,
@@ -55,19 +51,16 @@ macro_rules! current_ip {
     };
 }
 
-impl<'a> VM<'a> {
+impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
-    pub fn interpret(&'a mut self, chunk: &'a Chunk) -> Result<()> {
-        self.chunk = Some(chunk);
+    pub fn interpret(&mut self, chunk: &Chunk) -> Result<()> {
         self.ip = 0;
-
-        self.run()
+        self.run(chunk)
     }
 
     /// The main opcode interpreter loop.
-    fn run(&mut self) -> Result<()> {
+    fn run(&mut self, chunk: &Chunk) -> Result<()> {
         use OpCode::*;
-        let chunk = self.chunk.expect("I should have a valid chunk right now");
 
         loop {
             if cfg!(feature = "trace_execution") {
@@ -148,11 +141,10 @@ impl<'a> VM<'a> {
     }
 }
 
-impl<'a> Default for VM<'a> {
+impl Default for VM {
     fn default() -> Self {
         // Create a VM with the value stack pre-allocated to the minimum size.
         VM {
-            chunk: None,
             ip: 0,
             stack: Vec::with_capacity(STACK_SIZE),
         }
