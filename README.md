@@ -20,14 +20,15 @@ See also: my Java implementation, [jlox][].
 
     cargo run
 
-# Cargo Features
+# Cargo Features
 
- - `trace_execution` — if compiled with `trace_execution`, there will be
-   verbose debugging printed for every opcode executed.
+ - `trace_execution` — if compiled with `trace_execution`, verbose
+   diagnostics are printed **to `stdout`** for every opcode executed.
+   Extremely chatty — use this only for debugging.
 
        cargo run --features=trace_execution
 
-# Test driven development
+# Test driven development
 
 I hack on this iteratively by combining [`just`][just] with [`entr`][entr]:
 
