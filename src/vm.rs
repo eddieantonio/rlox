@@ -1,15 +1,19 @@
 use thiserror::Error;
 
-use crate::prelude::{Chunk, OpCode};
+use crate::prelude::{Chunk, OpCode, Value};
+
+const STACK_SIZE: usize = 256;
 
 pub type Result<T> = std::result::Result<T, InterpretationError>;
 
-#[derive(Default)]
 pub struct VM<'a> {
+    /// Code to execute
     chunk: Option<&'a Chunk>,
     /// Instruction pointer --- index into the chunk for the next opcode to be executed
     // TODO: convert to slice?
     ip: usize,
+    /// Value stack -- modified as elements are pushed and popped from the stack.
+    stack: Vec<Value>,
 }
 
 #[derive(Debug, Error)]
@@ -33,25 +37,56 @@ impl<'a> VM<'a> {
         let chunk = self.chunk.expect("I should have a valid chunk right now");
 
         loop {
-            trace_instruction(chunk, self.ip);
+            if cfg!(feature = "trace_execution") {
+                print!("        ");
+                for value in self.stack.iter() {
+                    print!("[ {value:?} ]")
+                }
+                println!();
+                trace_instruction(chunk, self.ip);
+            }
+
             let opcode = chunk
                 .get(self.ip)
                 .expect("I have an instruction pointer within range")
                 .as_opcode();
 
             match opcode {
-                Some(Return) => return Ok(()),
+                Some(Return) => {
+                    let return_value = self.pop().expect("value stack is empty");
+                    println!("{return_value}");
+
+                    return Ok(());
+                }
                 Some(Constant) => {
                     let constant = chunk
                         .get(self.ip + 1)
                         .expect("there should be an operand")
                         .resolve_constant()
                         .expect("there should be a constant at this index");
-                    println!("{constant}");
+                    self.push(constant);
                     self.ip += 2;
                 }
                 None => panic!("tried to get an invalid opcode at {}", self.ip),
             }
+        }
+    }
+
+    fn push(&mut self, value: Value) {
+        self.stack.push(value);
+    }
+
+    fn pop(&mut self) -> Option<Value> {
+        self.stack.pop()
+    }
+}
+
+impl<'a> Default for VM<'a> {
+    fn default() -> Self {
+        VM {
+            chunk: None,
+            ip: 0,
+            stack: Vec::with_capacity(STACK_SIZE),
         }
     }
 }
