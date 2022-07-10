@@ -1,6 +1,7 @@
 //! The bytecode virtual machine.
 use thiserror::Error;
 
+use crate::compiler;
 use crate::prelude::{Chunk, OpCode, Value};
 
 /// Used as the minimum capacity of the stack.
@@ -53,9 +54,10 @@ macro_rules! current_ip {
 
 impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
-    pub fn interpret(&mut self, chunk: &Chunk) -> Result<()> {
+    pub fn interpret(&mut self, source: &str) -> Result<()> {
+        let chunk = compiler::compile(source);
         self.ip = 0;
-        self.run(chunk)
+        self.run(&chunk)
     }
 
     /// The main opcode interpreter loop.

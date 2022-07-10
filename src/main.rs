@@ -1,28 +1,78 @@
+use std::env;
+use std::fs;
+use std::io;
+
 use rlox::prelude::*;
+use rlox::vm;
 
-fn main() -> rlox::vm::Result<()> {
+/// The conventional exit code in BSD Unixes.
+/// See: man 3 sysexits
+mod ex {
+    /// The conventional exit code for usage error.
+    pub const USAGE: i32 = 64;
+    /// When the input data is incorrect -- for example, a compile-time error.
+    pub const DATAERR: i32 = 65;
+    /// An internal software error occured.
+    pub const SOFTWARE: i32 = 70;
+    /// An error occured while doing I/O on a file.
+    pub const IOERR: i32 = 74;
+}
+
+fn main() -> vm::Result<()> {
+    let args: Vec<_> = env::args().collect();
+
+    if args.len() <= 1 {
+        repl()
+    } else if args.len() == 2 {
+        let filename = args.get(1).unwrap();
+        run_file(filename)
+    } else {
+        eprintln!("Usage: rlox [path]");
+        std::process::exit(ex::USAGE);
+    }
+}
+
+/// Use Lox interactively using the read-execute-print loop.
+fn repl() -> vm::Result<()> {
     let mut vm = VM::default();
-    let mut c = Chunk::new();
+    let mut line = String::with_capacity(1024);
 
-    // equiv to Lox program:
-    // ```
-    // return -((1.2 + 3.4) / 5.6);
-    // ```
-    let constant = c.add_constant(1.2.into());
-    c.write_opcode(OpCode::Constant, 1).with_operand(constant);
+    let stdin = io::stdin();
 
-    let constant = c.add_constant(3.4.into());
-    c.write_opcode(OpCode::Constant, 1).with_operand(constant);
+    loop {
+        line.clear();
 
-    c.write_opcode(OpCode::Add, 1);
+        print!("> ");
+        match stdin.read_line(&mut line) {
+            Ok(_) => {
+                vm.interpret(&line)?;
+            }
+            Err(_) => {
+                println!();
+                break;
+            }
+        }
+    }
 
-    let constant = c.add_constant(5.6.into());
-    c.write_opcode(OpCode::Constant, 1).with_operand(constant);
+    Ok(())
+}
 
-    c.write_opcode(OpCode::Divide, 1);
-    c.write_opcode(OpCode::Negate, 1);
+fn run_file(filename: &str) -> vm::Result<()> {
+    let source = match fs::read_to_string(filename) {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!("Could not read file: {filename}");
+            std::process::exit(ex::IOERR);
+        }
+    };
+    let mut vm = VM::default();
 
-    c.write_opcode(OpCode::Return, 1);
+    use InterpretationError::*;
+    let status = match vm.interpret(&source) {
+        Ok(_) => 0,
+        Err(CompileError) => ex::DATAERR,
+        Err(RuntimeError) => ex::SOFTWARE,
+    };
 
-    vm.interpret(&c)
+    std::process::exit(status)
 }

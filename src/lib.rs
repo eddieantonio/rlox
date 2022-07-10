@@ -7,7 +7,9 @@
 //! [lox]: https://craftinginterpreters.com/the-lox-language.html
 
 pub mod chunk;
+pub mod compiler;
 pub mod debug;
+pub mod scanner;
 pub mod value;
 pub mod vm;
 
@@ -20,6 +22,7 @@ mod with_try_from_u8;
 /// most common "global" items here:
 pub mod prelude {
     pub use crate::chunk::{Chunk, OpCode};
+    pub use crate::scanner::{Scanner, Token, TokenType};
     pub use crate::value::Value;
-    pub use crate::vm::VM;
+    pub use crate::vm::{InterpretationError, VM};
 }

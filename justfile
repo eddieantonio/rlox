@@ -5,4 +5,4 @@
 tdd:
     cargo test
     cargo doc
-    cargo run --features=trace_execution
+    cargo run --features=trace_execution examples/current-example.lox
