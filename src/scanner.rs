@@ -4,7 +4,7 @@ pub struct Token<'a> {
     pub line: usize,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum TokenType {
     // Single-character tokens.
@@ -54,7 +54,9 @@ impl<'a> Scanner<'a> {
 
         let c = self.advance();
 
-        if c.is_ascii_digit() {
+        if is_id_start(c) {
+            return self.identifier();
+        } else if c.is_ascii_digit() {
             return self.number();
         }
 
@@ -194,6 +196,58 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn check_keyword(&self, keyword_text: &'static str, keyword: TokenType) -> TokenType {
+        let token_length = self.start.len() - self.current.len();
+        let lexeme = &self.start[..token_length];
+
+        if lexeme == keyword_text {
+            keyword
+        } else {
+            TokenType::Identifier
+        }
+    }
+
+    fn identifier_type(&self) -> TokenType {
+        let mut chars = self.start.chars();
+
+        // Note: I changed this code a bit from Crafting Interpreters to do less
+        // index shenanigans that are pointless in Rust.
+        match chars.next().unwrap_or('\0') {
+            'a' => self.check_keyword("and", TokenType::And),
+            'c' => self.check_keyword("class", TokenType::Class),
+            'e' => self.check_keyword("else", TokenType::Else),
+            'f' => match chars.next().unwrap_or('\0') {
+                'a' => self.check_keyword("false", TokenType::False),
+                'o' => self.check_keyword("for", TokenType::For),
+                'u' => self.check_keyword("fun", TokenType::Fun),
+                _ => TokenType::Identifier,
+            },
+            'i' => self.check_keyword("if", TokenType::If),
+            'n' => self.check_keyword("nil", TokenType::Nil),
+            'o' => self.check_keyword("or", TokenType::Or),
+            'p' => self.check_keyword("print", TokenType::Print),
+            'r' => self.check_keyword("return", TokenType::Return),
+            's' => self.check_keyword("super", TokenType::Super),
+            't' => match chars.next().unwrap_or('\0') {
+                'h' => self.check_keyword("this", TokenType::This),
+                'r' => self.check_keyword("true", TokenType::True),
+                _ => TokenType::Identifier,
+            },
+            'v' => self.check_keyword("var", TokenType::Var),
+            'w' => self.check_keyword("while", TokenType::While),
+            _ => TokenType::Identifier,
+        }
+    }
+
+    /// Scan an identifier or keyword.
+    fn identifier(&mut self) -> Token<'a> {
+        while is_id_continue(self.peek()) {
+            self.advance();
+        }
+
+        self.make_token(self.identifier_type())
+    }
+
     /// Scan a string literal. Expects the starting quote to have been consumed.
     fn string(&mut self) -> Token<'a> {
         while self.peek() != '"' && !self.is_at_end() {
@@ -260,4 +314,16 @@ impl<'a> Token<'a> {
         assert_ne!(0, self.len());
         false
     }
+}
+
+/// Returns true if this char can start an identifier or keyword.
+///
+/// Note: this differs from Crafting Interpreters, as it uses isAlpha().
+fn is_id_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
+}
+
+/// Returns true if this char can be used after the first character of an identifier or keyword.
+fn is_id_continue(c: char) -> bool {
+    is_id_start(c) || c.is_ascii_digit()
 }
