@@ -98,9 +98,7 @@ impl<'a> Scanner<'a> {
             return self.make_lexeme(Token::Eof);
         }
 
-        let c = self.advance();
-
-        match c {
+        match self.advance() {
             c if is_id_start(c) => self.identifier(),
             c if c.is_ascii_digit() => self.number(),
             '(' => self.make_lexeme(Token::LeftParen),
@@ -115,36 +113,36 @@ impl<'a> Scanner<'a> {
             '/' => self.make_lexeme(Token::Slash),
             '*' => self.make_lexeme(Token::Star),
             '!' => {
-                let token = if self.match_char('=') {
+                let followed_by_equal = self.match_and_advance('=');
+                self.make_lexeme(if followed_by_equal {
                     Token::BangEqual
                 } else {
                     Token::Bang
-                };
-                self.make_lexeme(token)
+                })
             }
             '=' => {
-                let token = if self.match_char('=') {
+                let followed_by_equal = self.match_and_advance('=');
+                self.make_lexeme(if followed_by_equal {
                     Token::EqualEqual
                 } else {
                     Token::Equal
-                };
-                self.make_lexeme(token)
+                })
             }
             '<' => {
-                let token = if self.match_char('=') {
+                let followed_by_equal = self.match_and_advance('=');
+                self.make_lexeme(if followed_by_equal {
                     Token::LessEqual
                 } else {
                     Token::Less
-                };
-                self.make_lexeme(token)
+                })
             }
             '>' => {
-                let token = if self.match_char('=') {
+                let followed_by_equal = self.match_and_advance('=');
+                self.make_lexeme(if followed_by_equal {
                     Token::GreaterEqual
                 } else {
                     Token::Greater
-                };
-                self.make_lexeme(token)
+                })
             }
             '"' => self.string(),
             _ => self.error_token("Unexpected character"),
@@ -189,7 +187,7 @@ impl<'a> Scanner<'a> {
 
     /// Matches the expected character. If the next character matches, returns true and advances
     /// self.current. Otherwise, return false and does not update anything.
-    fn match_char(&mut self, expected: char) -> bool {
+    fn match_and_advance(&mut self, expected: char) -> bool {
         if self.is_at_end() {
             return false;
         }
