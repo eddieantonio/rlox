@@ -150,7 +150,8 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn is_at_end(&self) -> bool {
+    /// Returns `true` if we've reached the end of the source code.
+    pub fn is_at_end(&self) -> bool {
         self.current.is_empty()
     }
 
@@ -201,16 +202,6 @@ impl<'a> Scanner<'a> {
         true
     }
 
-    /// Returns an Error token.
-    fn error_token(&self, message: &'a str) -> Token<'a> {
-        assert_ne!(self.start, self.current);
-        Token {
-            ttype: TokenType::Error,
-            lexeme: message,
-            line: self.line,
-        }
-    }
-
     /// Skips whitespace and comments.
     fn skip_whitespace(&mut self) {
         loop {
@@ -236,51 +227,6 @@ impl<'a> Scanner<'a> {
                 }
                 _ => return,
             };
-        }
-    }
-
-    /// Confirms that the current lexeme is a keyword or lexeme.
-    fn check_keyword(&self, keyword_text: &'static str, keyword: TokenType) -> TokenType {
-        let token_length = self.start.len() - self.current.len();
-        let lexeme = &self.start[..token_length];
-
-        if lexeme == keyword_text {
-            keyword
-        } else {
-            TokenType::Identifier
-        }
-    }
-
-    /// Check if the identifier is a keyword, or a normal identifier.
-    fn identifier_type(&self) -> TokenType {
-        let mut chars = self.start.chars();
-
-        // Note: I changed this code a bit from Crafting Interpreters to do less
-        // index shenanigans that are pointless in Rust.
-        match chars.next().unwrap_or('\0') {
-            'a' => self.check_keyword("and", TokenType::And),
-            'c' => self.check_keyword("class", TokenType::Class),
-            'e' => self.check_keyword("else", TokenType::Else),
-            'f' => match chars.next().unwrap_or('\0') {
-                'a' => self.check_keyword("false", TokenType::False),
-                'o' => self.check_keyword("for", TokenType::For),
-                'u' => self.check_keyword("fun", TokenType::Fun),
-                _ => TokenType::Identifier,
-            },
-            'i' => self.check_keyword("if", TokenType::If),
-            'n' => self.check_keyword("nil", TokenType::Nil),
-            'o' => self.check_keyword("or", TokenType::Or),
-            'p' => self.check_keyword("print", TokenType::Print),
-            'r' => self.check_keyword("return", TokenType::Return),
-            's' => self.check_keyword("super", TokenType::Super),
-            't' => match chars.next().unwrap_or('\0') {
-                'h' => self.check_keyword("this", TokenType::This),
-                'r' => self.check_keyword("true", TokenType::True),
-                _ => TokenType::Identifier,
-            },
-            'v' => self.check_keyword("var", TokenType::Var),
-            'w' => self.check_keyword("while", TokenType::While),
-            _ => TokenType::Identifier,
         }
     }
 
@@ -327,6 +273,61 @@ impl<'a> Scanner<'a> {
         }
 
         self.make_token(TokenType::Number)
+    }
+
+    /// Check if the identifier is a keyword, or a normal identifier.
+    fn identifier_type(&self) -> TokenType {
+        let mut chars = self.start.chars();
+
+        // Note: I changed this code a bit from Crafting Interpreters to do less
+        // index shenanigans that are pointless in Rust.
+        match chars.next().unwrap_or('\0') {
+            'a' => self.check_keyword("and", TokenType::And),
+            'c' => self.check_keyword("class", TokenType::Class),
+            'e' => self.check_keyword("else", TokenType::Else),
+            'f' => match chars.next().unwrap_or('\0') {
+                'a' => self.check_keyword("false", TokenType::False),
+                'o' => self.check_keyword("for", TokenType::For),
+                'u' => self.check_keyword("fun", TokenType::Fun),
+                _ => TokenType::Identifier,
+            },
+            'i' => self.check_keyword("if", TokenType::If),
+            'n' => self.check_keyword("nil", TokenType::Nil),
+            'o' => self.check_keyword("or", TokenType::Or),
+            'p' => self.check_keyword("print", TokenType::Print),
+            'r' => self.check_keyword("return", TokenType::Return),
+            's' => self.check_keyword("super", TokenType::Super),
+            't' => match chars.next().unwrap_or('\0') {
+                'h' => self.check_keyword("this", TokenType::This),
+                'r' => self.check_keyword("true", TokenType::True),
+                _ => TokenType::Identifier,
+            },
+            'v' => self.check_keyword("var", TokenType::Var),
+            'w' => self.check_keyword("while", TokenType::While),
+            _ => TokenType::Identifier,
+        }
+    }
+
+    /// Confirms that the current lexeme is a keyword or lexeme.
+    fn check_keyword(&self, keyword_text: &'static str, keyword: TokenType) -> TokenType {
+        let token_length = self.start.len() - self.current.len();
+        let lexeme = &self.start[..token_length];
+
+        if lexeme == keyword_text {
+            keyword
+        } else {
+            TokenType::Identifier
+        }
+    }
+
+    /// Returns an Error token.
+    fn error_token(&self, message: &'a str) -> Token<'a> {
+        assert_ne!(self.start, self.current);
+        Token {
+            ttype: TokenType::Error,
+            lexeme: message,
+            line: self.line,
+        }
     }
 
     /// Returns a [Token] from the span between self.start and self.current with the given
