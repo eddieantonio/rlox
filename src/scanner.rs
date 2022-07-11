@@ -1,9 +1,42 @@
+//! Handle Lox's lexical analysis.
+//!
+//! Contains the [Scanner] which implements an [Iterator] that yields [Token]s, each of which
+//! belongs to a [TokenType].
+//!
+//! # Example
+//!
+//! ```
+//! use rlox::scanner::{Scanner, Token, TokenType};
+//! use TokenType::*;
+//! let scanner = Scanner::new("print 1 + 2;");
+//! let tokens: Vec<_> = scanner
+//!     .map(|lexeme| lexeme.ttype)
+//!     .take_while(|&kind| kind != Eof) // scanner will yield Eof forever...
+//!     .collect();
+//! assert_eq!(
+//!     vec![Print, Number, Plus, Number, Semicolon],
+//!     tokens
+//! );
+//! ```
+
+/// A token from Lox's lexical grammar.
+///
+/// Note: I used Crafting Interpreters's terminology here, although I would personally rename them
+/// as thus:
+///
+/// - Token       → Lexeme     -- an individual lexeme from the source code
+/// - TokenType   → Token      -- the type of a lexeme
+/// - Token.lexme → Token.text -- the actual text of the lexeme
 pub struct Token<'a> {
+    /// The [TokenType] of this token.
     pub ttype: TokenType,
+    /// The actual text in the source code file.
     pub lexeme: &'a str,
+    /// The line this token is found.
     pub line: usize,
 }
 
+/// What kind of [Token] you have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum TokenType {
@@ -29,6 +62,10 @@ pub enum TokenType {
     Error, Eof
 }
 
+/// Scans Lox source code and iteratively yields [Token]s.
+/// The scanner is stateful, and therefore, can only be used to do one pass over the source string.
+/// The s
+#[derive(Debug)]
 pub struct Scanner<'a> {
     start: &'a str,
     current: &'a str,
@@ -36,6 +73,7 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
+    /// Start scanning the given string of source code.
     pub fn new(source: &'a str) -> Self {
         Scanner {
             start: source,
@@ -44,6 +82,8 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Yield the next [Token] from the string. If the scanner has reached the end-of-file, this
+    /// function will always return an end-of-file token.
     pub fn scan_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
         self.start = self.current;
@@ -160,6 +200,7 @@ impl<'a> Scanner<'a> {
         true
     }
 
+    /// Returns an Error token.
     fn error_token(&self, message: &'a str) -> Token<'a> {
         assert_ne!(self.start, self.current);
         Token {
@@ -169,6 +210,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Skips whitespace and comments.
     fn skip_whitespace(&mut self) {
         loop {
             let c = self.peek();
@@ -196,6 +238,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Confirms that the current lexeme is a keyword or lexeme.
     fn check_keyword(&self, keyword_text: &'static str, keyword: TokenType) -> TokenType {
         let token_length = self.start.len() - self.current.len();
         let lexeme = &self.start[..token_length];
@@ -207,6 +250,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Check if the identifier is a keyword, or a normal identifier.
     fn identifier_type(&self) -> TokenType {
         let mut chars = self.start.chars();
 
@@ -284,6 +328,8 @@ impl<'a> Scanner<'a> {
         self.make_token(TokenType::Number)
     }
 
+    /// Returns a [Token] from the span between self.start and self.current with the given
+    /// [TokenType].
     fn make_token(&self, ttype: TokenType) -> Token<'a> {
         assert!(self.current.len() <= self.start.len());
         let extent = self.start.len() - self.current.len();
