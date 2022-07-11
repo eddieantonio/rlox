@@ -100,14 +100,9 @@ impl<'a> Scanner<'a> {
 
         let c = self.advance();
 
-        if is_id_start(c) {
-            return self.identifier();
-        }
-        if c.is_ascii_digit() {
-            return self.number();
-        }
-
         match c {
+            c if is_id_start(c) => self.identifier(),
+            c if c.is_ascii_digit() => self.number(),
             '(' => self.make_lexeme(Token::LeftParen),
             ')' => self.make_lexeme(Token::RightParen),
             '{' => self.make_lexeme(Token::LeftBrace),
