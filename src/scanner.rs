@@ -10,7 +10,7 @@
 //! use TokenType::*;
 //! let scanner = Scanner::new("print 1 + 2;");
 //! let tokens: Vec<_> = scanner
-//!     .map(|lexeme| lexeme.ttype)
+//!     .map(|lexeme| lexeme.token_type())
 //!     .take_while(|&kind| kind != Eof) // scanner will yield Eof forever...
 //!     .collect();
 //! assert_eq!(
@@ -29,11 +29,11 @@
 /// - Token.lexme → Token.text -- the actual text of the lexeme
 pub struct Token<'a> {
     /// The [TokenType] of this token.
-    pub ttype: TokenType,
+    ttype: TokenType,
     /// The actual text in the source code file.
-    pub lexeme: &'a str,
+    lexeme: &'a str,
     /// The line this token is found.
-    pub line: usize,
+    line: usize,
 }
 
 /// What kind of [Token] you have.
@@ -357,6 +357,26 @@ impl<'a> Iterator for Scanner<'a> {
         (usize::MAX, None)
     }
 }
+
+impl<'a> Token<'a> {
+    /// Return the line number this token was found on.
+    pub fn line(&self) -> usize {
+        self.line
+    }
+
+    /// Return the literal text of this token. For string literals, this always includes the
+    /// quotes.
+    pub fn lexeme(&self) -> &'a str {
+        self.lexeme
+    }
+
+    /// Return the [TokenType] of this token.
+    pub fn token_type(&self) -> TokenType {
+        self.ttype
+    }
+}
+
+///////////////////////////////////////////// Helpers /////////////////////////////////////////////
 
 /// Returns true if this char can start an identifier or keyword.
 ///
