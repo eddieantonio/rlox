@@ -22,7 +22,7 @@ mod with_try_from_u8;
 /// most common "global" items here:
 pub mod prelude {
     pub use crate::chunk::{Chunk, OpCode};
-    pub use crate::scanner::{Scanner, Token, TokenType};
+    pub use crate::scanner::{Scanner, Lexeme, Token};
     pub use crate::value::Value;
     pub use crate::vm::{InterpretationError, VM};
 }

@@ -13,9 +13,9 @@ pub fn compile(source: &str) -> Chunk {
             print!("   | ");
         }
 
-        println!("{:2?} '{}'", token.token_type(), token.lexeme());
+        println!("{:2?} '{}'", token.token(), token.text());
 
-        if token.token_type() == TokenType::Eof {
+        if token.token() == Token::Eof {
             break;
         }
     }

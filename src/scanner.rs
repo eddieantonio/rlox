@@ -1,45 +1,49 @@
 //! Handle Lox's lexical analysis.
 //!
-//! Contains the [Scanner] which implements an [Iterator] that yields [Token]s, each of which
-//! belongs to a [TokenType].
+//! Contains the [Scanner] which implements an [Iterator] that yields [Lexeme]s, each of which
+//! represents a [Token].
 //!
 //! # Example
 //!
 //! ```
-//! use rlox::scanner::{Scanner, Token, TokenType};
-//! use TokenType::*;
+//! use rlox::scanner::{Scanner, Lexeme, Token};
 //! let scanner = Scanner::new("print 1 + 2;");
 //! let tokens: Vec<_> = scanner
-//!     .map(|lexeme| lexeme.token_type())
-//!     .take_while(|&kind| kind != Eof) // scanner will yield Eof forever...
+//!     .map(|lexeme| lexeme.token())
+//!     .take_while(|&token| token != Token::Eof) // scanner will yield Eof forever...
 //!     .collect();
+//!
+//! use Token::*;
 //! assert_eq!(
 //!     vec![Print, Number, Plus, Number, Semicolon],
 //!     tokens
 //! );
 //! ```
+//!
+//! # Note on terminology
+//!
+//! I did NOT use the terminology in Crafting Interpreters.  Frankly, the terminology surrounding
+//! the nouns in field of lexical analysis confuses me, so I'm just using some terms that make
+//! sense and avoid using "type" as an identifier.  Thus, when Crafting Interpreters says:
+//!
+//! - Token, in this code it's a [Lexeme].
+//! - TokenType, in this code it's a [Token].
+//! - lexme, in this code it's [Lexeme::text()].
 
-/// A token from Lox's lexical grammar.
-///
-/// Note: I used Crafting Interpreters's terminology here, although I would personally rename them
-/// as thus:
-///
-/// - Token       → Lexeme     -- an individual lexeme from the source code
-/// - TokenType   → Token      -- the type of a lexeme
-/// - Token.lexme → Token.text -- the actual text of the lexeme
-pub struct Token<'a> {
-    /// The [TokenType] of this token.
-    ttype: TokenType,
-    /// The actual text in the source code file.
-    lexeme: &'a str,
-    /// The line this token is found.
+/// A lexme from one contiguous string from some Lox source code.
+pub struct Lexeme<'a> {
+    /// The [Token] of this lexeme.
+    token: Token,
+    /// The actual text from the source code.
+    text: &'a str,
+    /// The line where this lexeme came from.
     line: usize,
 }
 
-/// What kind of [Token] you have.
+/// What _type_ of [Lexeme] you have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum TokenType {
+pub enum Token {
     // Single-character tokens.
     LeftParen, RightParen,
     LeftBrace, RightBrace,
@@ -62,9 +66,11 @@ pub enum TokenType {
     Error, Eof
 }
 
-/// Scans Lox source code and iteratively yields [Token]s.
-/// The scanner is stateful, and therefore, can only be used to do one pass over the source string.
-/// The s
+/// Scans Lox source code and iteratively yields [Lexeme]s.
+///
+/// The scanner is stateful, and therefore, can only be used to do one pass over the source code
+/// string. Once the whole source code has been scanned, the scanner will forever yield
+/// [Token::Eof].
 #[derive(Debug)]
 pub struct Scanner<'a> {
     start: &'a str,
@@ -82,14 +88,14 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    /// Yield the next [Token] from the string. If the scanner has reached the end-of-file, this
-    /// function will always return an end-of-file token.
-    pub fn scan_token(&mut self) -> Token<'a> {
+    /// Yield the next [Lexeme] from the string. Once the scanner has reached the end-of-file, this
+    /// function will always return an end-of-file lexeme.
+    pub fn scan_token(&mut self) -> Lexeme<'a> {
         self.skip_whitespace();
         self.start = self.current;
 
         if self.is_at_end() {
-            return self.make_token(TokenType::Eof);
+            return self.make_lexeme(Token::Eof);
         }
 
         let c = self.advance();
@@ -102,48 +108,48 @@ impl<'a> Scanner<'a> {
         }
 
         match c {
-            '(' => self.make_token(TokenType::LeftParen),
-            ')' => self.make_token(TokenType::RightParen),
-            '{' => self.make_token(TokenType::LeftBrace),
-            '}' => self.make_token(TokenType::RightBrace),
-            ';' => self.make_token(TokenType::Semicolon),
-            ',' => self.make_token(TokenType::Comma),
-            '.' => self.make_token(TokenType::Dot),
-            '-' => self.make_token(TokenType::Minus),
-            '+' => self.make_token(TokenType::Plus),
-            '/' => self.make_token(TokenType::Slash),
-            '*' => self.make_token(TokenType::Star),
+            '(' => self.make_lexeme(Token::LeftParen),
+            ')' => self.make_lexeme(Token::RightParen),
+            '{' => self.make_lexeme(Token::LeftBrace),
+            '}' => self.make_lexeme(Token::RightBrace),
+            ';' => self.make_lexeme(Token::Semicolon),
+            ',' => self.make_lexeme(Token::Comma),
+            '.' => self.make_lexeme(Token::Dot),
+            '-' => self.make_lexeme(Token::Minus),
+            '+' => self.make_lexeme(Token::Plus),
+            '/' => self.make_lexeme(Token::Slash),
+            '*' => self.make_lexeme(Token::Star),
             '!' => {
-                let ttype = if self.match_char('=') {
-                    TokenType::BangEqual
+                let token = if self.match_char('=') {
+                    Token::BangEqual
                 } else {
-                    TokenType::Bang
+                    Token::Bang
                 };
-                self.make_token(ttype)
+                self.make_lexeme(token)
             }
             '=' => {
-                let ttype = if self.match_char('=') {
-                    TokenType::EqualEqual
+                let token = if self.match_char('=') {
+                    Token::EqualEqual
                 } else {
-                    TokenType::Equal
+                    Token::Equal
                 };
-                self.make_token(ttype)
+                self.make_lexeme(token)
             }
             '<' => {
-                let ttype = if self.match_char('=') {
-                    TokenType::LessEqual
+                let token = if self.match_char('=') {
+                    Token::LessEqual
                 } else {
-                    TokenType::Less
+                    Token::Less
                 };
-                self.make_token(ttype)
+                self.make_lexeme(token)
             }
             '>' => {
-                let ttype = if self.match_char('=') {
-                    TokenType::GreaterEqual
+                let token = if self.match_char('=') {
+                    Token::GreaterEqual
                 } else {
-                    TokenType::Greater
+                    Token::Greater
                 };
-                self.make_token(ttype)
+                self.make_lexeme(token)
             }
             '"' => self.string(),
             _ => self.error_token("Unexpected character"),
@@ -231,16 +237,16 @@ impl<'a> Scanner<'a> {
     }
 
     /// Scan an identifier or keyword.
-    fn identifier(&mut self) -> Token<'a> {
+    fn identifier(&mut self) -> Lexeme<'a> {
         while is_id_continue(self.peek()) {
             self.advance();
         }
 
-        self.make_token(self.identifier_type())
+        self.make_lexeme(self.identifier_type())
     }
 
     /// Scan a string literal. Expects the starting quote to have been consumed.
-    fn string(&mut self) -> Token<'a> {
+    fn string(&mut self) -> Lexeme<'a> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -253,11 +259,11 @@ impl<'a> Scanner<'a> {
         }
 
         assert_eq!('"', self.advance());
-        self.make_token(TokenType::StrLiteral)
+        self.make_lexeme(Token::StrLiteral)
     }
 
     /// Scan a number literal. Expects the first digit to have already been consumed.
-    fn number(&mut self) -> Token<'a> {
+    fn number(&mut self) -> Lexeme<'a> {
         while self.peek().is_ascii_digit() {
             self.advance();
         }
@@ -272,83 +278,83 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        self.make_token(TokenType::Number)
+        self.make_lexeme(Token::Number)
     }
 
     /// Check if the identifier is a keyword, or a normal identifier.
-    fn identifier_type(&self) -> TokenType {
+    fn identifier_type(&self) -> Token {
         let mut chars = self.start.chars();
 
         // Note: I changed this code a bit from Crafting Interpreters to do less
         // index shenanigans that are pointless in Rust.
         match chars.next().unwrap_or('\0') {
-            'a' => self.check_keyword("and", TokenType::And),
-            'c' => self.check_keyword("class", TokenType::Class),
-            'e' => self.check_keyword("else", TokenType::Else),
+            'a' => self.check_keyword("and", Token::And),
+            'c' => self.check_keyword("class", Token::Class),
+            'e' => self.check_keyword("else", Token::Else),
             'f' => match chars.next().unwrap_or('\0') {
-                'a' => self.check_keyword("false", TokenType::False),
-                'o' => self.check_keyword("for", TokenType::For),
-                'u' => self.check_keyword("fun", TokenType::Fun),
-                _ => TokenType::Identifier,
+                'a' => self.check_keyword("false", Token::False),
+                'o' => self.check_keyword("for", Token::For),
+                'u' => self.check_keyword("fun", Token::Fun),
+                _ => Token::Identifier,
             },
-            'i' => self.check_keyword("if", TokenType::If),
-            'n' => self.check_keyword("nil", TokenType::Nil),
-            'o' => self.check_keyword("or", TokenType::Or),
-            'p' => self.check_keyword("print", TokenType::Print),
-            'r' => self.check_keyword("return", TokenType::Return),
-            's' => self.check_keyword("super", TokenType::Super),
+            'i' => self.check_keyword("if", Token::If),
+            'n' => self.check_keyword("nil", Token::Nil),
+            'o' => self.check_keyword("or", Token::Or),
+            'p' => self.check_keyword("print", Token::Print),
+            'r' => self.check_keyword("return", Token::Return),
+            's' => self.check_keyword("super", Token::Super),
             't' => match chars.next().unwrap_or('\0') {
-                'h' => self.check_keyword("this", TokenType::This),
-                'r' => self.check_keyword("true", TokenType::True),
-                _ => TokenType::Identifier,
+                'h' => self.check_keyword("this", Token::This),
+                'r' => self.check_keyword("true", Token::True),
+                _ => Token::Identifier,
             },
-            'v' => self.check_keyword("var", TokenType::Var),
-            'w' => self.check_keyword("while", TokenType::While),
-            _ => TokenType::Identifier,
+            'v' => self.check_keyword("var", Token::Var),
+            'w' => self.check_keyword("while", Token::While),
+            _ => Token::Identifier,
         }
     }
 
     /// Confirms that the current lexeme is a keyword or lexeme.
-    fn check_keyword(&self, keyword_text: &'static str, keyword: TokenType) -> TokenType {
+    fn check_keyword(&self, keyword_text: &'static str, keyword: Token) -> Token {
         let token_length = self.start.len() - self.current.len();
         let lexeme = &self.start[..token_length];
 
         if lexeme == keyword_text {
             keyword
         } else {
-            TokenType::Identifier
+            Token::Identifier
         }
     }
 
-    /// Returns an Error token.
-    fn error_token(&self, message: &'a str) -> Token<'a> {
+    /// Returns an lexeme with [Token::Error] as its token.
+    fn error_token(&self, message: &'a str) -> Lexeme<'a> {
         assert_ne!(self.start, self.current);
-        Token {
-            ttype: TokenType::Error,
-            lexeme: message,
+        Lexeme {
+            token: Token::Error,
+            text: message,
             line: self.line,
         }
     }
 
-    /// Returns a [Token] from the span between self.start and self.current with the given
-    /// [TokenType].
-    fn make_token(&self, ttype: TokenType) -> Token<'a> {
+    /// Returns a [Lexeme] from the span between self.start and self.current with the given
+    /// [Token].
+    fn make_lexeme(&self, token: Token) -> Lexeme<'a> {
         assert!(self.current.len() <= self.start.len());
         let extent = self.start.len() - self.current.len();
-        let lexeme = &self.start[..extent];
+        let text = &self.start[..extent];
 
-        Token {
-            ttype,
-            lexeme,
+        Lexeme {
+            token,
+            text,
             line: self.line,
         }
     }
 }
 
 impl<'a> Iterator for Scanner<'a> {
-    type Item = Token<'a>;
+    type Item = Lexeme<'a>;
 
-    fn next(&mut self) -> Option<Token<'a>> {
+    fn next(&mut self) -> Option<Lexeme<'a>> {
         Some(self.scan_token())
     }
 
@@ -358,7 +364,7 @@ impl<'a> Iterator for Scanner<'a> {
     }
 }
 
-impl<'a> Token<'a> {
+impl<'a> Lexeme<'a> {
     /// Return the line number this token was found on.
     pub fn line(&self) -> usize {
         self.line
@@ -366,13 +372,13 @@ impl<'a> Token<'a> {
 
     /// Return the literal text of this token. For string literals, this always includes the
     /// quotes.
-    pub fn lexeme(&self) -> &'a str {
-        self.lexeme
+    pub fn text(&self) -> &'a str {
+        self.text
     }
 
-    /// Return the [TokenType] of this token.
-    pub fn token_type(&self) -> TokenType {
-        self.ttype
+    /// Return the [Token] of this lexeme.
+    pub fn token(&self) -> Token {
+        self.token
     }
 }
 
