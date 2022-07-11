@@ -96,7 +96,8 @@ impl<'a> Scanner<'a> {
 
         if is_id_start(c) {
             return self.identifier();
-        } else if c.is_ascii_digit() {
+        }
+        if c.is_ascii_digit() {
             return self.number();
         }
 
@@ -346,19 +347,13 @@ impl<'a> Scanner<'a> {
 impl<'a> Iterator for Scanner<'a> {
     type Item = Token<'a>;
 
-    fn next<'b>(&mut self) -> Option<Token<'a>> {
+    fn next(&mut self) -> Option<Token<'a>> {
         Some(self.scan_token())
     }
-}
 
-impl<'a> Token<'a> {
-    pub fn len(&self) -> usize {
-        self.lexeme.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        assert_ne!(0, self.len());
-        false
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // This iterator is infinite.
+        (usize::MAX, None)
     }
 }
 

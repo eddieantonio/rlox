@@ -3,6 +3,7 @@ use crate::prelude::*;
 pub fn compile(source: &str) -> Chunk {
     let scanner = Scanner::new(source);
 
+    // Temporary code to scan the entire file and print it.
     let mut line = 0;
     for token in scanner {
         if token.line != line {
