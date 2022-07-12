@@ -388,3 +388,65 @@ fn is_id_start(c: char) -> bool {
 fn is_id_continue(c: char) -> bool {
     is_id_start(c) || c.is_ascii_digit()
 }
+
+////////////////////////////////////////////// Tests //////////////////////////////////////////////
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn scanning_every_keyword() {
+        use Token::*;
+
+        let source_code = "class classic {
+            fun fund() {
+                if (ifree and anders or orvile) {
+                    print printer;
+                } else {
+                    for (former = 0; former < 10; former = former + 1) {
+                    nill = nil;
+                    }
+                    super.falseFlag = truede;
+                    this.thistle = true;
+                    superMario = false or true;
+                    return returned;
+                }
+                var varied;
+                while (whileLoop) {
+                    0;
+                }
+            }
+        }";
+
+        // I copied the indentation of the code above.
+        #[rustfmt::skip]
+        let expected_tokens = vec![
+            Class, Identifier, LeftBrace,
+                Fun, Identifier, LeftParen, RightParen, LeftBrace,
+                    If, LeftParen, Identifier, And, Identifier, Or, Identifier, RightParen, LeftBrace,
+                        Print, Identifier, Semicolon,
+                    RightBrace, Else, LeftBrace,
+                        For, LeftParen, Identifier, Equal, Number, Semicolon, Identifier, Less, Number, Semicolon, Identifier, Equal, Identifier, Plus, Number, RightParen, LeftBrace,
+                            Identifier, Equal, Nil, Semicolon,
+                        RightBrace,
+                        Super, Dot, Identifier, Equal, Identifier, Semicolon,
+                        This, Dot, Identifier, Equal,
+                        True, Semicolon, Identifier, Equal, False, Or, True, Semicolon,
+                        Return, Identifier, Semicolon,
+                    RightBrace,
+                    Var, Identifier, Semicolon,
+                    While, LeftParen, Identifier, RightParen, LeftBrace,
+                        Number, Semicolon,
+                    RightBrace,
+                RightBrace,
+            RightBrace,
+        ];
+
+        let actual_tokens: Vec<_> = Scanner::new(source_code)
+            .map(|lexeme| lexeme.token())
+            .take_while(|&token| token != Eof)
+            .collect();
+        assert_eq!(expected_tokens, actual_tokens);
+    }
+}

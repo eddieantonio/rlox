@@ -12,7 +12,7 @@ class classic {
             return returned;
         }
         var varied;
-        while (false) {
+        while (whileLoop) {
             0;
         }
     }
