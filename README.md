@@ -28,6 +28,12 @@ See also: my Java implementation, [jlox][].
 
        cargo run --features=trace_execution
 
+ - `print_code` — if compiled with `print_code`, the Lox compiler will
+   print the disassembly of the chunk it just created **to `stdout`**
+   Use this to debug code generation.
+
+       cargo run --features=print_code
+
 # Test driven development
 
 I hack on this iteratively by combining [`just`][just] with [`entr`][entr]:
