@@ -139,6 +139,16 @@ impl Chunk {
         }
     }
 
+    /// Appends an arbitrary byte to the the byte code.
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because it allows creating arbitrary bytes. If one is not careful about
+    /// calling this, it can result in invalid bytecode!
+    pub unsafe fn write_unchecked(&mut self, byte: u8, line: usize) {
+        self.write(byte, line);
+    }
+
     /// Adds a constant to the constant pool, and returns its index.
     ///
     /// # Panics
@@ -146,8 +156,17 @@ impl Chunk {
     /// Panics when adding the 257th constant or greater. Since the available indices are 0-255,
     /// there is only room for 256 constants. Trying to add more than this will panic.
     pub fn add_constant(&mut self, value: Value) -> u8 {
+        // TODO: change signature to allow for checking for overflow!
         self.constants.write(value);
         u8::try_from(self.constants.len() - 1).expect("Exceeded size available for u8")
+    }
+
+    // TODO
+    pub fn add_constant_usize(&mut self, value: Value) -> usize {
+        let index = self.constants.len();
+        // TODO: change signature to allow for checking for overflow!
+        self.constants.write(value);
+        index
     }
 
     /// Returns the line number for whatever is at the given offset.

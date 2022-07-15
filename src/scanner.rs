@@ -31,6 +31,7 @@
 //! - lexme, in this code it's [Lexeme::text()].
 
 /// A lexme from one contiguous string from some Lox source code.
+#[derive(Clone, Debug)]
 pub struct Lexeme<'a> {
     /// The [Token] of this lexeme.
     token: Token,
@@ -152,6 +153,14 @@ impl<'a> Scanner<'a> {
     /// Returns `true` if we've reached the end of the source code.
     pub fn is_at_end(&self) -> bool {
         self.current.is_empty()
+    }
+
+    pub fn make_sentinel(&self, message: &'static str) -> Lexeme<'a> {
+        Lexeme {
+            token: Token::Error,
+            text: message,
+            line: 0,
+        }
     }
 
     /// Advances self.current, s.t., self.start < self.current are a reference to the same str.

@@ -39,7 +39,7 @@ macro_rules! current_ip {
 impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
     pub fn interpret(&mut self, source: &str) -> crate::Result<()> {
-        let chunk = compiler::compile(source);
+        let chunk = compiler::compile(source)?;
         self.ip = 0;
         self.run(&chunk)
     }
