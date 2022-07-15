@@ -172,49 +172,6 @@ impl<'a> Compiler<'a> {
         self.emit_return();
     }
 
-    fn grouping(&mut self) {
-        self.expression();
-        self.parser
-            .consume(Token::RightParen, "Expect ')' after grouping.");
-    }
-
-    fn number(&mut self) {
-        assert_eq!(Token::Number, self.parser.previous.token());
-        let value = self
-            .parser
-            .previous
-            .text()
-            .parse::<f64>()
-            .expect("Token MUST parse as a float");
-        self.emit_constant(value.into());
-    }
-
-    fn unary(&mut self) {
-        let operator = self.parser.previous.token();
-
-        // Compile the operand, so that it's placed on the stack.
-        self.parse_precedence(Precedence::Unary);
-
-        match operator {
-            Token::Minus => unsafe { self.emit_byte(OpCode::Negate as u8) },
-            _ => unreachable!(),
-        }
-    }
-
-    fn binary(&mut self) {
-        let operator = self.parser.previous.token();
-        let rule = ParserRule::from_token(operator);
-
-        self.parse_precedence(rule.higher_precedence());
-        match operator {
-            Token::Plus => unsafe { self.emit_byte(OpCode::Add as u8) },
-            Token::Minus => unsafe { self.emit_byte(OpCode::Subtract as u8) },
-            Token::Star => unsafe { self.emit_byte(OpCode::Multiply as u8) },
-            Token::Slash => unsafe { self.emit_byte(OpCode::Divide as u8) },
-            _ => unreachable!(),
-        }
-    }
-
     fn parse_precedence(&mut self, precedence: Precedence) {
         // What is happening here?
     }
@@ -263,4 +220,50 @@ pub fn compile(source: &str) -> crate::Result<Chunk> {
     let compiler = Compiler::new(parser);
 
     compiler.compile()
+}
+
+/////////////////////////////////////////// Parse rules ///////////////////////////////////////////
+
+fn grouping(compiler: &mut Compiler) {
+    compiler.expression();
+    compiler
+        .parser
+        .consume(Token::RightParen, "Expect ')' after grouping.");
+}
+
+fn number(compiler: &mut Compiler) {
+    assert_eq!(Token::Number, compiler.parser.previous.token());
+    let value = compiler
+        .parser
+        .previous
+        .text()
+        .parse::<f64>()
+        .expect("Token MUST parse as a float");
+    compiler.emit_constant(value.into());
+}
+
+fn unary(compiler: &mut Compiler) {
+    let operator = compiler.parser.previous.token();
+
+    // Compile the operand, so that it's placed on the stack.
+    compiler.parse_precedence(Precedence::Unary);
+
+    match operator {
+        Token::Minus => unsafe { compiler.emit_byte(OpCode::Negate as u8) },
+        _ => unreachable!(),
+    }
+}
+
+fn binary(compiler: &mut Compiler) {
+    let operator = compiler.parser.previous.token();
+    let rule = ParserRule::from_token(operator);
+
+    compiler.parse_precedence(rule.higher_precedence());
+    match operator {
+        Token::Plus => unsafe { compiler.emit_byte(OpCode::Add as u8) },
+        Token::Minus => unsafe { compiler.emit_byte(OpCode::Subtract as u8) },
+        Token::Star => unsafe { compiler.emit_byte(OpCode::Multiply as u8) },
+        Token::Slash => unsafe { compiler.emit_byte(OpCode::Divide as u8) },
+        _ => unreachable!(),
+    }
 }
