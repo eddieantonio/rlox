@@ -169,6 +169,11 @@ impl<'a> Compiler<'a> {
 
     fn end_compiler(&mut self) {
         self.emit_return();
+
+        // Print a listing of the bytecode to manually inspect compiled output.
+        if cfg!(feature = "print_code") && !self.parser.had_error {
+            crate::debug::disassemble_chunk(self.current_chunk(), "code");
+        }
     }
 
     /// The core of the Pratt parsing algorithm. See [Pratt1973].

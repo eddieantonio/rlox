@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 trace_execution = []
+print_code = []
 
 [dependencies]
 enum-map = "2.4.0"
