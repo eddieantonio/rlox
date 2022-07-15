@@ -3,7 +3,6 @@ use std::fs;
 use std::io;
 
 use rlox::prelude::*;
-use rlox::vm;
 
 /// The conventional exit code in BSD Unixes.
 /// See: man 3 sysexits
@@ -18,7 +17,7 @@ mod ex {
     pub const IOERR: i32 = 74;
 }
 
-fn main() -> vm::Result<()> {
+fn main() -> rlox::Result<()> {
     let args: Vec<_> = env::args().collect();
 
     if args.len() <= 1 {
@@ -33,7 +32,7 @@ fn main() -> vm::Result<()> {
 }
 
 /// Use Lox interactively using the read-execute-print loop.
-fn repl() -> vm::Result<()> {
+fn repl() -> rlox::Result<()> {
     let mut vm = VM::default();
     let mut line = String::with_capacity(1024);
 
@@ -57,7 +56,7 @@ fn repl() -> vm::Result<()> {
     Ok(())
 }
 
-fn run_file(filename: &str) -> vm::Result<()> {
+fn run_file(filename: &str) -> rlox::Result<()> {
     let source = match fs::read_to_string(filename) {
         Ok(s) => s,
         Err(_) => {

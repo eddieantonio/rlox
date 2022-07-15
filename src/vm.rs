@@ -1,5 +1,4 @@
 //! The bytecode virtual machine.
-use thiserror::Error;
 
 use crate::compiler;
 use crate::prelude::{Chunk, OpCode, Value};
@@ -8,9 +7,6 @@ use crate::prelude::{Chunk, OpCode, Value};
 /// Since we're using a growable [Vec], the stack size can be arbitrarily large.
 const STACK_SIZE: usize = 256;
 
-/// The type returned by [VM::interpret].
-pub type Result<T> = std::result::Result<T, InterpretationError>;
-
 /// Maintains state for the Lox virtual machine.
 pub struct VM {
     /// Instruction pointer --- index into the chunk for the next opcode to be executed
@@ -18,18 +14,6 @@ pub struct VM {
     ip: usize,
     /// Value stack -- modified as elements are pushed and popped from the stack.
     stack: Vec<Value>,
-}
-
-/// Any error that can occur during interpretation.
-#[derive(Debug, Error)]
-pub enum InterpretationError {
-    /// A compile-time error, such as a syntax error, or a name error.
-    #[error("compile-time error")]
-    CompileError,
-    /// A runtime error, such as a type error or exception.
-    #[error("runtime error")]
-    RuntimeError,
-    // TODO: add a variant for "invalid bytecode"?
 }
 
 /// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
@@ -54,14 +38,14 @@ macro_rules! current_ip {
 
 impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
-    pub fn interpret(&mut self, source: &str) -> Result<()> {
+    pub fn interpret(&mut self, source: &str) -> crate::Result<()> {
         let chunk = compiler::compile(source);
         self.ip = 0;
         self.run(&chunk)
     }
 
     /// The main opcode interpreter loop.
-    fn run(&mut self, chunk: &Chunk) -> Result<()> {
+    fn run(&mut self, chunk: &Chunk) -> crate::Result<()> {
         use OpCode::*;
 
         loop {

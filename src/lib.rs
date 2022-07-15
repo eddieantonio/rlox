@@ -9,11 +9,23 @@
 pub mod chunk;
 pub mod compiler;
 pub mod debug;
+pub mod error;
 pub mod scanner;
 pub mod value;
 pub mod vm;
 
 mod with_try_from_u8;
+
+/// The type returned by various functions that parse, compile, and run Lox code.
+/// This is the standard [std::result::Result], but the error is always
+/// [error::InterpretationError]. This type alias is generic for the return type, however.
+///
+/// ```
+/// fn compile() -> rlox::Result<()> {
+///     Ok(())
+/// }
+/// ```
+pub type Result<T> = std::result::Result<T, error::InterpretationError>;
 
 /// Re-exports common items.
 ///
@@ -22,7 +34,8 @@ mod with_try_from_u8;
 /// most common "global" items here:
 pub mod prelude {
     pub use crate::chunk::{Chunk, OpCode};
-    pub use crate::scanner::{Scanner, Lexeme, Token};
+    pub use crate::error::InterpretationError;
+    pub use crate::scanner::{Lexeme, Scanner, Token};
     pub use crate::value::Value;
-    pub use crate::vm::{InterpretationError, VM};
+    pub use crate::vm::VM;
 }
