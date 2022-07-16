@@ -35,6 +35,8 @@ with_try_from_u8! {
         Divide,
         Negate,
         Constant,
+        BranchIfFalsy,
+        Jump,
     }
 }
 

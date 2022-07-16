@@ -40,6 +40,8 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
         Divide => simple_instruction("OP_DIVIDE", offset),
         Negate => simple_instruction("OP_NEGATE", offset),
         Return => simple_instruction("OP_RETURN", offset),
+        BranchIfFalsy => branch_instruction("OP_BRANCH", c, offset),
+        Jump => branch_instruction("OP_JUMP", c, offset),
     }
 }
 
@@ -48,6 +50,17 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
 fn simple_instruction(name: &str, offset: usize) -> usize {
     println!("{name:>14}");
     offset + 1
+}
+
+fn branch_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+    print!("{name:>14}");
+    let value = chunk
+        .get(offset + 1)
+        .expect("ran out of bytes")
+        .as_constant_index();
+    println!("{value:+4}");
+
+    offset + 2
 }
 
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {

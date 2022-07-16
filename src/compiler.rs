@@ -452,11 +452,16 @@ fn ternary(compiler: &mut Compiler) {
     // A value is on already on the stack
 
     // We need to emit a conditional jump
+    compiler
+        .emit_instruction(OpCode::BranchIfFalsy)
+        .with_operand(0);
+    // TODO: let hole = compiler.emit_instruction(OpCode::Placeholder).with_hole_for_operand();
 
     // consequent
     let higher = compiler.rule_from_previous().higher_precedence();
     compiler.parse_precedence(higher);
     // emit an unconditional branch
+    compiler.emit_instruction(OpCode::Jump).with_operand(0);
 
     // alternative
     compiler
@@ -465,7 +470,8 @@ fn ternary(compiler: &mut Compiler) {
 
     compiler.parse_precedence(higher);
 
-    // create a branch target here
+    // make a branch target here
+    // TODO: hole.fill(compiler.current_ip_offset());
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////

@@ -91,6 +91,22 @@ impl VM {
 
                     return Ok(());
                 }
+                Some(BranchIfFalsy) => {
+                    let Value::Number(value) = self.pop();
+                    let offset = next_bytecode!(self, chunk)
+                        .expect("there should be an operand")
+                        .as_constant_index();
+
+                    if value != 0.0 {
+                        self.ip += offset;
+                    }
+                }
+                Some(Jump) => {
+                    let offset = next_bytecode!(self, chunk)
+                        .expect("there should be an operand")
+                        .as_constant_index();
+                    self.ip += offset;
+                }
                 None => panic!("fetched invalid opcode at {}", current_ip!(self)),
             }
         }
