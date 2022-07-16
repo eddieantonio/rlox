@@ -224,20 +224,25 @@ impl<'a> Compiler<'a> {
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.parser.advance();
 
-        // What rule should we use right now?
-        let prefix_rule = get_rule(self.parser.previous.token()).prefix;
+        // First, figure out how to parse the prefix.
+        let prefix_rule = self.rule_from_previous().prefix;
         match prefix_rule {
             Some(parse_prefix) => parse_prefix(self),
             None => {
-                // TODO: better error message -- what are we even checking here?
-                self.parser.error("Expected expression");
+                // TODO: better error message. This is difficult because we lack
+                // state that lets us know how "far off" the token stream is to something that
+                // would parse properly.
+                self.parser
+                    .error("Could not figure out how to understand symbol in this context");
                 return;
             }
         }
 
-        while precedence <= get_rule(self.parser.current.token()).precedence {
+        while precedence <= self.rule_from_current().precedence {
+            // current is now previous:
             self.parser.advance();
-            let infix_rule = get_rule(self.parser.previous.token())
+            let infix_rule = self
+                .rule_from_previous()
                 .infix
                 .expect("a rule with a defined precedence must always have an infix rule");
 
@@ -284,7 +289,10 @@ impl<'a> Compiler<'a> {
         self.current_chunk().write_opcode(opcode, line)
     }
 
+    ///////////////////////////////////////// Aliases /////////////////////////////////////////////
+
     /// Returns the current [Chunk].
+    #[inline(always)]
     fn current_chunk(&mut self) -> &mut Chunk {
         &mut self.compiling_chunk
     }
@@ -293,6 +301,18 @@ impl<'a> Compiler<'a> {
     #[inline(always)]
     fn line_number_of_prefix(&self) -> usize {
         self.parser.previous.line()
+    }
+
+    /// Returns the token of the prefix in the process of being parsed.
+    #[inline(always)]
+    fn rule_from_previous(&self) -> ParserRule {
+        get_rule(self.parser.previous.token())
+    }
+
+    /// Returns the token of the prefix in the process of being parsed.
+    #[inline(always)]
+    fn rule_from_current(&self) -> ParserRule {
+        get_rule(self.parser.current.token())
     }
 }
 
