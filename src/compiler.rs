@@ -1,6 +1,7 @@
 //! Contains the Lox parser and bytecode compiler.
 use enum_map::enum_map;
 
+use crate::chunk::WrittenOpcode;
 use crate::prelude::*;
 
 /////////////////////////////////////////// Public API ////////////////////////////////////////////
@@ -274,6 +275,13 @@ impl<'a> Compiler<'a> {
             self.parser.error("Too many constants in one chunk");
             0
         }
+    }
+
+    /// Writes an [OpCode] to the current [Chunk].
+    /// Returns a [WrittenOpcode], with which you can write an operand.
+    fn emit_instruction(&mut self, opcode: OpCode) -> WrittenOpcode {
+        let line = self.line_number_of_prefix();
+        self.current_chunk().write_opcode(opcode, line)
     }
 
     /// Appends an arbitrary byte to the current [Chunk].
