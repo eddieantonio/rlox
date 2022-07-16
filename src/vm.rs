@@ -8,12 +8,21 @@ use crate::prelude::{Chunk, InterpretationError, OpCode, Value};
 const STACK_SIZE: usize = 256;
 
 /// Maintains state for the Lox virtual machine.
+#[derive(Default)]
 pub struct VM {
+    // In order to match the interface in Crafting Interpreters, I created this struct.
+    // However, it's inconvenient in Rust because of chunk possibly being None; however, we know
+    // that there's a state in which the VM MUST have a chunk, which is why VmWithChunk exists.
+}
+
+/// A VM with an active chunk
+struct VmWithChunk<'a> {
     /// Instruction pointer --- index into the chunk for the next opcode to be executed
     // TODO: convert to slice?
     ip: usize,
     /// Value stack -- modified as elements are pushed and popped from the stack.
     stack: Vec<Value>,
+    chunk: &'a Chunk,
 }
 
 /// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
@@ -40,13 +49,20 @@ impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
     pub fn interpret(&mut self, source: &str) -> crate::Result<()> {
         let chunk = compiler::compile(source)?;
-        self.ip = 0;
-        self.run(&chunk)
+        let mut vm = VmWithChunk {
+            ip: 0,
+            stack: Vec::with_capacity(STACK_SIZE),
+            chunk: &chunk,
+        };
+        vm.run()
     }
+}
 
+impl<'a> VmWithChunk<'a> {
     /// The main opcode interpreter loop.
-    fn run(&mut self, chunk: &Chunk) -> crate::Result<()> {
+    fn run(&mut self) -> crate::Result<()> {
         use OpCode::*;
+        let chunk = self.chunk;
 
         loop {
             if cfg!(feature = "trace_execution") {
@@ -75,16 +91,16 @@ impl VM {
                         .expect("there should be a constant at this index");
                     self.push(constant);
                 }
-                Some(Add) => self.binary_op(chunk, |a, b| a + b)?,
-                Some(Subtract) => self.binary_op(chunk, |a, b| a - b)?,
-                Some(Multiply) => self.binary_op(chunk, |a, b| a * b)?,
-                Some(Divide) => self.binary_op(chunk, |a, b| a / b)?,
+                Some(Add) => self.binary_op(|a, b| a + b)?,
+                Some(Subtract) => self.binary_op(|a, b| a - b)?,
+                Some(Multiply) => self.binary_op(|a, b| a * b)?,
+                Some(Divide) => self.binary_op(|a, b| a / b)?,
                 Some(Negate) => {
                     if let Value::Number(number) = self.pop() {
                         self.push((-number).into());
                     } else {
                         // TODO: rephrase to remove "compiler-speak" from error message:
-                        self.runtime_error(chunk, "Operand must be a number")?;
+                        self.runtime_error("Operand must be a number")?;
                     }
                 }
                 Some(Return) => {
@@ -98,10 +114,10 @@ impl VM {
         }
     }
 
-    fn runtime_error<T>(&mut self, chunk: &Chunk, message: &str) -> crate::Result<T> {
+    fn runtime_error<T>(&mut self, message: &str) -> crate::Result<T> {
         eprintln!("{message}");
 
-        let line = chunk.line_number_for(self.ip).expect("line number");
+        let line = self.chunk.line_number_for(self.ip).expect("line number");
         eprintln!("[line {line}] in script");
 
         self.reset_stack();
@@ -110,7 +126,7 @@ impl VM {
     }
 
     /// Pops two operands on the stack to perform a binary operation.
-    fn binary_op<F>(&mut self, chunk: &Chunk, op: F) -> crate::Result<()>
+    fn binary_op<F>(&mut self, op: F) -> crate::Result<()>
     where
         F: Fn(f64, f64) -> f64,
     {
@@ -120,7 +136,7 @@ impl VM {
         use Value::Number;
         match (lhs, rhs) {
             (Number(a), Number(b)) => self.push(op(a, b).into()),
-            (_, _) => self.runtime_error(chunk, "Operands must be numbers")?,
+            (_, _) => self.runtime_error("Operands must be numbers")?,
         };
 
         Ok(())
@@ -161,15 +177,5 @@ impl VM {
     #[inline(always)]
     fn reset_stack(&mut self) {
         self.stack.clear()
-    }
-}
-
-impl Default for VM {
-    fn default() -> Self {
-        // Create a VM with the value stack pre-allocated to the minimum size.
-        VM {
-            ip: 0,
-            stack: Vec::with_capacity(STACK_SIZE),
-        }
     }
 }
