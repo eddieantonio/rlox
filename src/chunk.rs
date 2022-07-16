@@ -28,12 +28,19 @@ with_try_from_u8! {
     #[repr(u8)]
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     pub enum OpCode {
+        /// Pops the top value of the stack and returns from the execution of the current chunk.
         Return,
+        /// Pops RHS, then LHS; pushes LHS + RHS on to the stack.
         Add,
+        /// Pops RHS, then LHS; pushes LHS - RHS on to the stack.
         Subtract,
+        /// Pops RHS, then LHS; pushes LHS * RHS on to the stack.
         Multiply,
+        /// Pops RHS, then LHS; pushes LHS / RHS on to the stack.
         Divide,
+        /// Pops the top of the stack; pushes -TOS
         Negate,
+        /// Uses the operand as an index into the constant pool, and pushes that value on to the stack.
         Constant,
     }
 }
