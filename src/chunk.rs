@@ -142,16 +142,6 @@ impl Chunk {
         }
     }
 
-    /// Appends an arbitrary byte to the the byte code.
-    ///
-    /// # Safety
-    ///
-    /// This is unsafe because it allows creating arbitrary bytes. If one is not careful about
-    /// calling this, it can result in invalid bytecode!
-    pub unsafe fn write_unchecked(&mut self, byte: u8, line: usize) {
-        self.write(byte, line);
-    }
-
     /// Adds a constant to the constant pool, and returns its index, if successful.
     ///
     /// # Errors

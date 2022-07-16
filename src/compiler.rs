@@ -284,20 +284,6 @@ impl<'a> Compiler<'a> {
         self.current_chunk().write_opcode(opcode, line)
     }
 
-    /// Appends an arbitrary byte to the current [Chunk].
-    #[inline(always)]
-    unsafe fn emit_byte(&mut self, byte: u8) {
-        let line = self.line_number_of_prefix();
-        self.current_chunk().write_unchecked(byte, line);
-    }
-
-    /// Appends two arbitrary bytes to the current [Chunk].
-    #[inline(always)]
-    unsafe fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
-        self.emit_byte(byte1);
-        self.emit_byte(byte2);
-    }
-
     /// Returns the current [Chunk].
     fn current_chunk(&mut self) -> &mut Chunk {
         &mut self.compiling_chunk
