@@ -252,13 +252,13 @@ impl<'a> Compiler<'a> {
 
     /// Appends [OpCode::Return] to current [Chunk].
     fn emit_return(&mut self) {
-        unsafe { self.emit_byte(OpCode::Return as u8) }
+        self.emit_instruction(OpCode::Return);
     }
 
     /// Appends [OpCode::Constant] to current [Chunk], using the current value.
     fn emit_constant(&mut self, value: Value) {
         let index = self.make_constant(value);
-        unsafe { self.emit_bytes(OpCode::Constant as u8, index) }
+        self.emit_instruction(OpCode::Constant).with_operand(index);
     }
 
     /// Appends a new constant to the current [Chunk].
@@ -403,9 +403,9 @@ fn unary(compiler: &mut Compiler) {
     compiler.parse_precedence(Precedence::Unary);
 
     match operator {
-        Token::Minus => unsafe { compiler.emit_byte(OpCode::Negate as u8) },
+        Token::Minus => compiler.emit_instruction(OpCode::Negate),
         _ => unreachable!(),
-    }
+    };
 }
 
 /// Parse a binary operator as an infix. Assumes the operator has been consumed.
@@ -415,13 +415,15 @@ fn binary(compiler: &mut Compiler) {
 
     compiler.parse_precedence(rule.higher_precedence());
     match operator {
-        Token::Plus => unsafe { compiler.emit_byte(OpCode::Add as u8) },
-        Token::Minus => unsafe { compiler.emit_byte(OpCode::Subtract as u8) },
-        Token::Star => unsafe { compiler.emit_byte(OpCode::Multiply as u8) },
-        Token::Slash => unsafe { compiler.emit_byte(OpCode::Divide as u8) },
+        Token::Plus => compiler.emit_instruction(OpCode::Add),
+        Token::Minus => compiler.emit_instruction(OpCode::Subtract),
+        Token::Star => compiler.emit_instruction(OpCode::Multiply),
+        Token::Slash => compiler.emit_instruction(OpCode::Divide),
         _ => unreachable!(),
-    }
+    };
 }
+
+////////////////////////////////////////////// Tests //////////////////////////////////////////////
 
 #[cfg(test)]
 mod test {
