@@ -452,18 +452,22 @@ fn ternary(compiler: &mut Compiler) {
     // A value is on already on the stack
 
     // We need to emit a conditional jump
-    compiler
+    let else_target = compiler
         .emit_instruction(OpCode::BranchIfFalsy)
-        .with_operand(0);
-    // TODO: let hole = compiler.emit_instruction(OpCode::Placeholder).with_hole_for_operand();
+        .with_hole_for_operand();
 
     // consequent
     let higher = compiler.rule_from_previous().higher_precedence();
     compiler.parse_precedence(higher);
-    // emit an unconditional branch
-    compiler.emit_instruction(OpCode::Jump).with_operand(0);
+
+    // emit an unconditional branch to the end
+    let end_target = compiler
+        .emit_instruction(OpCode::Jump)
+        .with_hole_for_operand();
 
     // alternative
+    let else_offset = compiler.current_chunk().current_ip_offset();
+    compiler.current_chunk().fill_hole(else_target, else_offset);
     compiler
         .parser
         .consume(Token::Colon, "Expected a ':', to complete earlier '?'");
@@ -471,7 +475,8 @@ fn ternary(compiler: &mut Compiler) {
     compiler.parse_precedence(higher);
 
     // make a branch target here
-    // TODO: hole.fill(compiler.current_ip_offset());
+    let end_offset = compiler.current_chunk().current_ip_offset();
+    compiler.current_chunk().fill_hole(end_target, end_offset);
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////

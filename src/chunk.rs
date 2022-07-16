@@ -112,6 +112,11 @@ pub struct WrittenOpcode<'a> {
     provenance: &'a mut Chunk,
 }
 
+/// Represents a hole in the bytecode that must be filled in later.
+pub struct Hole {
+    offset: usize,
+}
+
 ///////////////////////////////////////// Implementation //////////////////////////////////////////
 
 impl Chunk {
@@ -131,6 +136,13 @@ impl Chunk {
         })
     }
 
+    /// Returns the absolute offset to the *next* bytecode.
+    /// Useful for calculating jump targets.
+    #[inline(always)]
+    pub fn current_ip_offset(&self) -> u8 {
+        u8::try_from(self.len()).expect("got too big of an offset")
+    }
+
     /// Append a single [OpCode] to the chunk.
     ///
     /// Returns a [WrittenOpcode], which is a handle that can be used to append additional
@@ -142,6 +154,12 @@ impl Chunk {
             line,
             provenance: self,
         }
+    }
+
+    /// Consumes the [Hole] and fills it with the given operand.
+    pub fn fill_hole(&mut self, hole: Hole, operand: u8) {
+        debug_assert!(hole.offset < self.code.len());
+        self.code[hole.offset] = operand;
     }
 
     /// Adds a constant to the constant pool, and returns its index, if successful.
@@ -192,6 +210,12 @@ impl<'a> BytecodeEntry<'a> {
         self.byte as usize
     }
 
+    /// Returns the byte as a offset into the chunk.
+    #[inline(always)]
+    pub fn as_absolute_offset(self) -> usize {
+        self.byte as usize
+    }
+
     /// Returns the byte decoded as an [OpCode].
     /// Returns `None` if the byte is not a valid opcode.
     #[inline]
@@ -228,6 +252,15 @@ impl<'a> WrittenOpcode<'a> {
     #[inline]
     pub fn with_operand(self, index: u8) {
         self.provenance.write(index, self.line);
+    }
+
+    /// Returns a [Hole] that allows you to defer filling in the operand until later.
+    /// Useful for when you don't know a branch instruction's target.
+    #[inline]
+    pub fn with_hole_for_operand(self) -> Hole {
+        let offset = self.provenance.len();
+        self.provenance.write(0xFF, self.line);
+        Hole { offset }
     }
 }
 

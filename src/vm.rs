@@ -95,17 +95,17 @@ impl VM {
                     let Value::Number(value) = self.pop();
                     let offset = next_bytecode!(self, chunk)
                         .expect("there should be an operand")
-                        .as_constant_index();
+                        .as_absolute_offset();
 
-                    if value != 0.0 {
-                        self.ip += offset;
+                    if value == 0.0 {
+                        self.ip = offset;
                     }
                 }
                 Some(Jump) => {
                     let offset = next_bytecode!(self, chunk)
                         .expect("there should be an operand")
-                        .as_constant_index();
-                    self.ip += offset;
+                        .as_absolute_offset();
+                    self.ip = offset;
                 }
                 None => panic!("fetched invalid opcode at {}", current_ip!(self)),
             }
