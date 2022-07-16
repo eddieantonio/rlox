@@ -7,9 +7,12 @@
 //!
 //! // Create a chunk:
 //! let mut chunk = Chunk::new();
-//! let constant_index = chunk.add_constant(1.2.into());
-//! chunk.write_opcode(OpCode::Constant, 1).with_operand(constant_index);
-//! chunk.write_opcode(OpCode::Return, 1);
+//!
+//! // Add a constant to it:
+//! if let Some(constant_index) = chunk.add_constant(1.2.into()) {
+//!     chunk.write_opcode(OpCode::Constant, 1).with_operand(constant_index);
+//!     chunk.write_opcode(OpCode::Return, 1);
+//! }
 //!
 //! // It should be 3 bytes:
 //! assert_eq!(3, chunk.len());
@@ -63,7 +66,7 @@ pub struct Chunk {
 /// let mut chunk = Chunk::new();
 ///
 /// // Write a valid program into the chunk:
-/// assert_eq!(0, chunk.add_constant(1.0.into()));
+/// assert_eq!(Some(0), chunk.add_constant(1.0.into()));
 /// chunk.write_opcode(OpCode::Constant, 1).with_operand(0);
 ///
 /// // Get a valid byte from the chunk:
@@ -149,16 +152,17 @@ impl Chunk {
         self.write(byte, line);
     }
 
-    /// Adds a constant to the constant pool, and returns its index.
+    /// Adds a constant to the constant pool, and returns its index, if successful.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when adding the 257th constant or greater. Since the available indices are 0-255,
-    /// there is only room for 256 constants. Trying to add more than this will panic.
-    pub fn add_constant(&mut self, value: Value) -> u8 {
-        // TODO: change signature to allow for checking for overflow!
+    /// A constant index must fit in a [u8]; therefore, **no more than 256 constants may be
+    /// added**. This method will return `None` when there are already at least 256 constants
+    /// added.
+    pub fn add_constant(&mut self, value: Value) -> Option<u8> {
+        let index = self.constants.len();
         self.constants.write(value);
-        u8::try_from(self.constants.len() - 1).expect("Exceeded size available for u8")
+        u8::try_from(index).ok()
     }
 
     // TODO
@@ -256,7 +260,7 @@ mod test {
     #[test]
     fn mess_around_with_bytecode() {
         let mut c = Chunk::new();
-        let i = c.add_constant(1.0.into());
+        let i = c.add_constant(1.0.into()).unwrap();
         c.write_opcode(OpCode::Constant, 123).with_operand(i);
         c.write_opcode(OpCode::Return, 123);
 
