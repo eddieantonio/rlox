@@ -225,17 +225,15 @@ impl<'a> Compiler<'a> {
         self.advance();
 
         // First, figure out how to parse the prefix.
-        let prefix_rule = self.rule_from_previous().prefix;
-        match prefix_rule {
-            Some(parse_prefix) => parse_prefix(self),
-            None => {
-                // TODO: better error message. This is difficult because we lack
-                // state that lets us know how "far off" the token stream is to something that
-                // would parse properly.
-                self.parser
-                    .error("Could not figure out how to understand symbol in this context");
-                return;
-            }
+        if let Some(parse_prefix) = self.rule_from_previous().prefix {
+            parse_prefix(self);
+        } else {
+            // TODO: better error message. This is difficult because we lack
+            // state that lets us know how "far off" the token stream is to something that
+            // would parse properly.
+            self.parser
+                .error("Could not figure out how to understand symbol in this context");
+            return;
         }
 
         while precedence <= self.rule_from_current().precedence {
