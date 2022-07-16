@@ -30,6 +30,20 @@ with_try_from_u8! {
     pub enum OpCode {
         /// Pops the top value of the stack and returns from the execution of the current chunk.
         Return,
+        /// Uses the operand as an index into the constant pool, and pushes that value on to the stack.
+        Constant,
+        /// Pushes `nil` on the stack.
+        Nil,
+        /// Pushes `true` on the stack.
+        True,
+        /// Pushes `false` on the stack.
+        False,
+        /// Pops RHS, then LHS; pushes LHS == RHS on to the stack.
+        Equal,
+        /// Pops RHS, then LHS; pushes LHS > RHS on to the stack.
+        Greater,
+        /// Pops RHS, then LHS; pushes LHS < RHS on to the stack.
+        Less,
         /// Pops RHS, then LHS; pushes LHS + RHS on to the stack.
         Add,
         /// Pops RHS, then LHS; pushes LHS - RHS on to the stack.
@@ -38,10 +52,10 @@ with_try_from_u8! {
         Multiply,
         /// Pops RHS, then LHS; pushes LHS / RHS on to the stack.
         Divide,
+        /// Pops the top of the stack; pushes !TOS
+        Not,
         /// Pops the top of the stack; pushes -TOS
         Negate,
-        /// Uses the operand as an index into the constant pool, and pushes that value on to the stack.
-        Constant,
     }
 }
 

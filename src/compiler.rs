@@ -287,6 +287,13 @@ impl<'a> Compiler<'a> {
         self.current_chunk().write_opcode(opcode, line)
     }
 
+    /// Writes two [OpCode] to the current [Chunk].
+    fn emit_instructions(&mut self, op1: OpCode, op2: OpCode) -> WrittenOpcode {
+        let line = self.line_number_of_prefix();
+        self.current_chunk().write_opcode(op1, line);
+        self.current_chunk().write_opcode(op2, line)
+    }
+
     ///////////////////////////////////////// Aliases /////////////////////////////////////////////
 
     /// Returns the current [Chunk].
@@ -359,31 +366,31 @@ fn get_rule(token: Token) -> ParserRule {
         Semicolon    => rule!{ None,           None,         Precedence::None },
         Slash        => rule!{ None,           Some(binary), Precedence::Factor },
         Star         => rule!{ None,           Some(binary), Precedence::Factor },
-        Bang         => rule!{ None,           None,         Precedence::None },
-        BangEqual    => rule!{ None,           None,         Precedence::None },
+        Bang         => rule!{ Some(unary),    None,         Precedence::None },
+        BangEqual    => rule!{ None,           Some(binary), Precedence::Equality },
         Equal        => rule!{ None,           None,         Precedence::None },
-        EqualEqual   => rule!{ None,           None,         Precedence::None },
-        Greater      => rule!{ None,           None,         Precedence::None },
-        GreaterEqual => rule!{ None,           None,         Precedence::None },
-        Less         => rule!{ None,           None,         Precedence::None },
-        LessEqual    => rule!{ None,           None,         Precedence::None },
+        EqualEqual   => rule!{ None,           Some(binary), Precedence::Equality },
+        Greater      => rule!{ None,           Some(binary), Precedence::Comparison },
+        GreaterEqual => rule!{ None,           Some(binary), Precedence::Comparison },
+        Less         => rule!{ None,           Some(binary), Precedence::Comparison },
+        LessEqual    => rule!{ None,           Some(binary), Precedence::Comparison },
         Identifier   => rule!{ None,           None,         Precedence::None },
         StrLiteral   => rule!{ None,           None,         Precedence::None },
         Number       => rule!{ Some(number),   None,         Precedence::None },
         And          => rule!{ None,           None,         Precedence::None },
         Class        => rule!{ None,           None,         Precedence::None },
         Else         => rule!{ None,           None,         Precedence::None },
-        False        => rule!{ None,           None,         Precedence::None },
+        False        => rule!{ Some(literal),  None,         Precedence::None },
         For          => rule!{ None,           None,         Precedence::None },
         Fun          => rule!{ None,           None,         Precedence::None },
         If           => rule!{ None,           None,         Precedence::None },
-        Nil          => rule!{ None,           None,         Precedence::None },
+        Nil          => rule!{ Some(literal),  None,         Precedence::None },
         Or           => rule!{ None,           None,         Precedence::None },
         Print        => rule!{ None,           None,         Precedence::None },
         Return       => rule!{ None,           None,         Precedence::None },
         Super        => rule!{ None,           None,         Precedence::None },
         This         => rule!{ None,           None,         Precedence::None },
-        True         => rule!{ None,           None,         Precedence::None },
+        True         => rule!{ Some(literal),  None,         Precedence::None },
         Var          => rule!{ None,           None,         Precedence::None },
         While        => rule!{ None,           None,         Precedence::None },
         Error        => rule!{ None,           None,         Precedence::None },
@@ -422,6 +429,7 @@ fn unary(compiler: &mut Compiler) {
     compiler.parse_precedence(Precedence::Unary);
 
     match operator {
+        Token::Bang => compiler.emit_instruction(OpCode::Not),
         Token::Minus => compiler.emit_instruction(OpCode::Negate),
         _ => unreachable!(),
     };
@@ -434,10 +442,26 @@ fn binary(compiler: &mut Compiler) {
 
     compiler.parse_precedence(rule.higher_precedence());
     match operator {
+        Token::BangEqual => compiler.emit_instructions(OpCode::Equal, OpCode::Not),
+        Token::EqualEqual => compiler.emit_instruction(OpCode::Equal),
+        Token::Greater => compiler.emit_instruction(OpCode::Greater),
+        Token::GreaterEqual => compiler.emit_instructions(OpCode::Less, OpCode::Not),
+        Token::Less => compiler.emit_instruction(OpCode::Less),
+        Token::LessEqual => compiler.emit_instructions(OpCode::Greater, OpCode::Not),
         Token::Plus => compiler.emit_instruction(OpCode::Add),
         Token::Minus => compiler.emit_instruction(OpCode::Subtract),
         Token::Star => compiler.emit_instruction(OpCode::Multiply),
         Token::Slash => compiler.emit_instruction(OpCode::Divide),
+        _ => unreachable!(),
+    };
+}
+
+/// Parse a keyword literal as a prefix. Assumes the keyword has been consumed.
+fn literal(compiler: &mut Compiler) {
+    match compiler.previous_token() {
+        Token::False => compiler.emit_instruction(OpCode::False),
+        Token::Nil => compiler.emit_instruction(OpCode::Nil),
+        Token::True => compiler.emit_instruction(OpCode::True),
         _ => unreachable!(),
     };
 }

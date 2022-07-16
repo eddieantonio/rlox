@@ -91,10 +91,24 @@ impl<'a> VmWithChunk<'a> {
                         .expect("there should be a constant at this index");
                     self.push(constant);
                 }
+                Some(Nil) => self.push(Value::Nil),
+                Some(True) => self.push(true.into()),
+                Some(False) => self.push(false.into()),
+                Some(Equal) => {
+                    let rhs = self.pop();
+                    let lhs = self.pop();
+                    self.push(lhs.lox_equal(&rhs).into());
+                }
+                Some(Greater) => self.binary_op(|a, b| a > b)?,
+                Some(Less) => self.binary_op(|a, b| a < b)?,
                 Some(Add) => self.binary_op(|a, b| a + b)?,
                 Some(Subtract) => self.binary_op(|a, b| a - b)?,
                 Some(Multiply) => self.binary_op(|a, b| a * b)?,
                 Some(Divide) => self.binary_op(|a, b| a / b)?,
+                Some(Not) => {
+                    let value = self.pop();
+                    self.push(value.is_falsy().into());
+                }
                 Some(Negate) => {
                     if let Value::Number(number) = self.pop() {
                         self.push((-number).into());
@@ -126,9 +140,10 @@ impl<'a> VmWithChunk<'a> {
     }
 
     /// Pops two operands on the stack to perform a binary operation.
-    fn binary_op<F>(&mut self, op: F) -> crate::Result<()>
+    fn binary_op<F, T>(&mut self, op: F) -> crate::Result<()>
     where
-        F: Fn(f64, f64) -> f64,
+        F: Fn(f64, f64) -> T,
+        T: Into<Value>,
     {
         let rhs = self.pop();
         let lhs = self.pop();

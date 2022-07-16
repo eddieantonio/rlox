@@ -34,10 +34,17 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
     match instruction {
         // This is kind of silly in Rust, tbh
         Constant => constant_instruction("OP_CONSTANT", c, offset),
+        Nil => simple_instruction("OP_NIL", offset),
+        True => simple_instruction("OP_TRUE", offset),
+        False => simple_instruction("OP_FALSE", offset),
+        Equal => simple_instruction("OP_EQUAL", offset),
+        Greater => simple_instruction("OP_GREATER", offset),
+        Less => simple_instruction("OP_LESS", offset),
         Add => simple_instruction("OP_ADD", offset),
         Subtract => simple_instruction("OP_SUBTRACT", offset),
         Multiply => simple_instruction("OP_MULTIPLY", offset),
         Divide => simple_instruction("OP_DIVIDE", offset),
+        Not => simple_instruction("OP_NOT", offset),
         Negate => simple_instruction("OP_NEGATE", offset),
         Return => simple_instruction("OP_RETURN", offset),
     }

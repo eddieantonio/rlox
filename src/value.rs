@@ -66,6 +66,27 @@ impl Value {
     pub fn is_number(&self) -> bool {
         matches!(self, Value::Number(_))
     }
+
+    /// Returns true if this value is "falsy".
+    pub fn is_falsy(&self) -> bool {
+        match self {
+            Value::Nil => true,
+            Value::Boolean(false) => true,
+            _ => false,
+        }
+    }
+
+    /// Applies Lox's rules for equality, returning a Rust bool.
+    #[inline]
+    pub fn lox_equal(&self, other: &Value) -> bool {
+        use Value::*;
+        match (self, other) {
+            (Number(a), Number(b)) => a == b,
+            (Boolean(a), Boolean(b)) => a == b,
+            (Nil, Nil) => true,
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
