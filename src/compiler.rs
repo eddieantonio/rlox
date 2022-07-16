@@ -110,13 +110,14 @@ impl ParserRule {
 
 impl<'a> Parser<'a> {
     fn new(source: &'a str) -> Parser {
-        let scanner = Scanner::new(source);
-        let error_token = scanner.make_sentinel("<before start>");
+        let mut scanner = Scanner::new(source);
+        let first_token = scanner.scan_token();
+        let error_token = scanner.make_sentinel("<before first token>");
 
         Parser {
             scanner,
-            current: error_token.clone(),
             previous: error_token,
+            current: first_token,
             had_error: false,
             panic_mode: false,
         }
@@ -192,7 +193,6 @@ impl<'a> Compiler<'a> {
 
     /// Takes ownership of the compiler, and returns the chunk
     fn compile(mut self) -> crate::Result<Chunk> {
-        self.advance();
         self.expression();
         self.parser
             .consume(Token::Eof, "Expected end of expression");
