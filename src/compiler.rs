@@ -279,7 +279,7 @@ impl<'a> Compiler<'a> {
     /// Appends an arbitrary byte to the current [Chunk].
     #[inline(always)]
     unsafe fn emit_byte(&mut self, byte: u8) {
-        let line = self.parser.previous.line();
+        let line = self.line_number_of_prefix();
         self.current_chunk().write_unchecked(byte, line);
     }
 
@@ -293,6 +293,12 @@ impl<'a> Compiler<'a> {
     /// Returns the current [Chunk].
     fn current_chunk(&mut self) -> &mut Chunk {
         &mut self.compiling_chunk
+    }
+
+    /// Returns the line number of the prefix token, a.k.a., `self.parser.previous`.
+    #[inline(always)]
+    fn line_number_of_prefix(&self) -> usize {
+        self.parser.previous.line()
     }
 }
 
