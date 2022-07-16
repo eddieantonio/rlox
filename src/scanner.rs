@@ -52,6 +52,7 @@ pub enum Token {
     LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus,
     Semicolon, Star, Slash,
+    Question, Colon,
     // Or or two characte tokens
     Bang, BangEqual,
     Equal, EqualEqual,
@@ -115,6 +116,8 @@ impl<'a> Scanner<'a> {
             '+' => self.make_lexeme(Token::Plus),
             '/' => self.make_lexeme(Token::Slash),
             '*' => self.make_lexeme(Token::Star),
+            '?' => self.make_lexeme(Token::Question),
+            ':' => self.make_lexeme(Token::Colon),
             '!' => {
                 let followed_by_equal = self.match_and_advance('=');
                 self.make_lexeme(if followed_by_equal {

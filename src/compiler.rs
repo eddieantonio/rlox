@@ -33,6 +33,8 @@ enum Precedence {
     Equality,
     /// `<` `>` `<=` `>=`
     Comparison,
+    /// `?`/`:`
+    Ternary,
     /// + -
     Term,
     /// `*` `/`
@@ -88,7 +90,8 @@ impl Precedence {
             Assignment => Or,
             Or => And,
             And => Equality,
-            Equality => Comparison,
+            Equality => Ternary,
+            Ternary => Comparison,
             Comparison => Term,
             Term => Factor,
             Factor => Unary,
@@ -347,47 +350,49 @@ fn get_rule(token: Token) -> ParserRule {
 
     #[rustfmt::skip]
     let rules = enum_map! {
-        //                     Prefix          Infix         Precedence
-        LeftParen    => rule!{ Some(grouping), None,         Precedence::None },
-        RightParen   => rule!{ None,           None,         Precedence::None },
-        LeftBrace    => rule!{ None,           None,         Precedence::None },
-        RightBrace   => rule!{ None,           None,         Precedence::None },
-        Comma        => rule!{ None,           None,         Precedence::None },
-        Dot          => rule!{ None,           None,         Precedence::None },
-        Minus        => rule!{ Some(unary),    Some(binary), Precedence::Term },
-        Plus         => rule!{ None,           Some(binary), Precedence::Term },
-        Semicolon    => rule!{ None,           None,         Precedence::None },
-        Slash        => rule!{ None,           Some(binary), Precedence::Factor },
-        Star         => rule!{ None,           Some(binary), Precedence::Factor },
-        Bang         => rule!{ None,           None,         Precedence::None },
-        BangEqual    => rule!{ None,           None,         Precedence::None },
-        Equal        => rule!{ None,           None,         Precedence::None },
-        EqualEqual   => rule!{ None,           None,         Precedence::None },
-        Greater      => rule!{ None,           None,         Precedence::None },
-        GreaterEqual => rule!{ None,           None,         Precedence::None },
-        Less         => rule!{ None,           None,         Precedence::None },
-        LessEqual    => rule!{ None,           None,         Precedence::None },
-        Identifier   => rule!{ None,           None,         Precedence::None },
-        StrLiteral   => rule!{ None,           None,         Precedence::None },
-        Number       => rule!{ Some(number),   None,         Precedence::None },
-        And          => rule!{ None,           None,         Precedence::None },
-        Class        => rule!{ None,           None,         Precedence::None },
-        Else         => rule!{ None,           None,         Precedence::None },
-        False        => rule!{ None,           None,         Precedence::None },
-        For          => rule!{ None,           None,         Precedence::None },
-        Fun          => rule!{ None,           None,         Precedence::None },
-        If           => rule!{ None,           None,         Precedence::None },
-        Nil          => rule!{ None,           None,         Precedence::None },
-        Or           => rule!{ None,           None,         Precedence::None },
-        Print        => rule!{ None,           None,         Precedence::None },
-        Return       => rule!{ None,           None,         Precedence::None },
-        Super        => rule!{ None,           None,         Precedence::None },
-        This         => rule!{ None,           None,         Precedence::None },
-        True         => rule!{ None,           None,         Precedence::None },
-        Var          => rule!{ None,           None,         Precedence::None },
-        While        => rule!{ None,           None,         Precedence::None },
-        Error        => rule!{ None,           None,         Precedence::None },
-        Eof          => rule!{ None,           None,         Precedence::None },
+        //                     Prefix          Infix          Precedence
+        LeftParen    => rule!{ Some(grouping), None,          Precedence::None },
+        RightParen   => rule!{ None,           None,          Precedence::None },
+        LeftBrace    => rule!{ None,           None,          Precedence::None },
+        RightBrace   => rule!{ None,           None,          Precedence::None },
+        Comma        => rule!{ None,           None,          Precedence::None },
+        Dot          => rule!{ None,           None,          Precedence::None },
+        Minus        => rule!{ Some(unary),    Some(binary),  Precedence::Term },
+        Plus         => rule!{ None,           Some(binary),  Precedence::Term },
+        Semicolon    => rule!{ None,           None,          Precedence::None },
+        Slash        => rule!{ None,           Some(binary),  Precedence::Factor },
+        Star         => rule!{ None,           Some(binary),  Precedence::Factor },
+        Question     => rule!{ None,           Some(ternary), Precedence::Ternary },
+        Colon        => rule!{ None,           None,          Precedence::None },
+        Bang         => rule!{ None,           None,          Precedence::None },
+        BangEqual    => rule!{ None,           None,          Precedence::None },
+        Equal        => rule!{ None,           None,          Precedence::None },
+        EqualEqual   => rule!{ None,           None,          Precedence::None },
+        Greater      => rule!{ None,           None,          Precedence::None },
+        GreaterEqual => rule!{ None,           None,          Precedence::None },
+        Less         => rule!{ None,           None,          Precedence::None },
+        LessEqual    => rule!{ None,           None,          Precedence::None },
+        Identifier   => rule!{ None,           None,          Precedence::None },
+        StrLiteral   => rule!{ None,           None,          Precedence::None },
+        Number       => rule!{ Some(number),   None,          Precedence::None },
+        And          => rule!{ None,           None,          Precedence::None },
+        Class        => rule!{ None,           None,          Precedence::None },
+        Else         => rule!{ None,           None,          Precedence::None },
+        False        => rule!{ None,           None,          Precedence::None },
+        For          => rule!{ None,           None,          Precedence::None },
+        Fun          => rule!{ None,           None,          Precedence::None },
+        If           => rule!{ None,           None,          Precedence::None },
+        Nil          => rule!{ None,           None,          Precedence::None },
+        Or           => rule!{ None,           None,          Precedence::None },
+        Print        => rule!{ None,           None,          Precedence::None },
+        Return       => rule!{ None,           None,          Precedence::None },
+        Super        => rule!{ None,           None,          Precedence::None },
+        This         => rule!{ None,           None,          Precedence::None },
+        True         => rule!{ None,           None,          Precedence::None },
+        Var          => rule!{ None,           None,          Precedence::None },
+        While        => rule!{ None,           None,          Precedence::None },
+        Error        => rule!{ None,           None,          Precedence::None },
+        Eof          => rule!{ None,           None,          Precedence::None },
     };
 
     rules[token]
@@ -440,6 +445,27 @@ fn binary(compiler: &mut Compiler) {
         Token::Slash => compiler.emit_instruction(OpCode::Divide),
         _ => unreachable!(),
     };
+}
+
+/// Parse the ternary operator as an infix. Assumes the operator has already been consumed.
+fn ternary(compiler: &mut Compiler) {
+    // A value is on already on the stack
+
+    // We need to emit a conditional jump
+
+    // consequent
+    let higher = compiler.rule_from_previous().higher_precedence();
+    compiler.parse_precedence(higher);
+    // emit an unconditional branch
+
+    // alternative
+    compiler
+        .parser
+        .consume(Token::Colon, "Expected a ':', to complete earlier '?'");
+
+    compiler.parse_precedence(higher);
+
+    // create a branch target here
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////
