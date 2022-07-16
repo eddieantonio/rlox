@@ -192,7 +192,7 @@ impl<'a> Compiler<'a> {
 
     /// Takes ownership of the compiler, and returns the chunk
     fn compile(mut self) -> crate::Result<Chunk> {
-        self.parser.advance();
+        self.advance();
         self.expression();
         self.parser
             .consume(Token::Eof, "Expected end of expression");
@@ -222,7 +222,7 @@ impl<'a> Compiler<'a> {
     ///
     /// See: <https://en.wikipedia.org/wiki/Operator-precedence_parser#Pratt_parsing>
     fn parse_precedence(&mut self, precedence: Precedence) {
-        self.parser.advance();
+        self.advance();
 
         // First, figure out how to parse the prefix.
         let prefix_rule = self.rule_from_previous().prefix;
@@ -240,7 +240,7 @@ impl<'a> Compiler<'a> {
 
         while precedence <= self.rule_from_current().precedence {
             // current is now previous:
-            self.parser.advance();
+            self.advance();
             let infix_rule = self
                 .rule_from_previous()
                 .infix
@@ -295,6 +295,15 @@ impl<'a> Compiler<'a> {
     #[inline(always)]
     fn current_chunk(&mut self) -> &mut Chunk {
         &mut self.compiling_chunk
+    }
+
+    /// Advance one token in scanner, such that:
+    /// ```ignore
+    /// (previous, current) = (current, scanner.next_token())
+    /// ```
+    #[inline(always)]
+    fn advance(&mut self) {
+        self.parser.advance()
     }
 
     /// Returns the line number of the prefix token, a.k.a., `self.parser.previous`.
