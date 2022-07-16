@@ -1,7 +1,7 @@
 //! The bytecode virtual machine.
 
 use crate::compiler;
-use crate::prelude::{Chunk, OpCode, Value};
+use crate::prelude::{Chunk, InterpretationError, OpCode, Value};
 
 /// Used as the minimum capacity of the stack.
 /// Since we're using a growable [Vec], the stack size can be arbitrarily large.
@@ -75,15 +75,17 @@ impl VM {
                         .expect("there should be a constant at this index");
                     self.push(constant);
                 }
-                Some(Add) => self.binary_op(|a, b| a + b),
-                Some(Subtract) => self.binary_op(|a, b| a - b),
-                Some(Multiply) => self.binary_op(|a, b| a * b),
-                Some(Divide) => self.binary_op(|a, b| a / b),
+                Some(Add) => self.binary_op(chunk, |a, b| a + b)?,
+                Some(Subtract) => self.binary_op(chunk, |a, b| a - b)?,
+                Some(Multiply) => self.binary_op(chunk, |a, b| a * b)?,
+                Some(Divide) => self.binary_op(chunk, |a, b| a / b)?,
                 Some(Negate) => {
-                    let value = self.pop();
-                    self.push(match value {
-                        Value::Number(num) => (-num).into(),
-                    });
+                    if let Value::Number(number) = self.pop() {
+                        self.push((-number).into());
+                    } else {
+                        // TODO: rephrase to remove "compiler-speak" from error message:
+                        self.runtime_error(chunk, "Operand must be a number")?;
+                    }
                 }
                 Some(Return) => {
                     let return_value = self.pop();
@@ -96,8 +98,19 @@ impl VM {
         }
     }
 
+    fn runtime_error<T>(&mut self, chunk: &Chunk, message: &str) -> crate::Result<T> {
+        eprintln!("{message}");
+
+        let line = chunk.line_number_for(self.ip).expect("line number");
+        eprintln!("[line {line}] in script");
+
+        self.reset_stack();
+
+        Err(InterpretationError::RuntimeError)
+    }
+
     /// Pops two operands on the stack to perform a binary operation.
-    fn binary_op<F>(&mut self, op: F)
+    fn binary_op<F>(&mut self, chunk: &Chunk, op: F) -> crate::Result<()>
     where
         F: Fn(f64, f64) -> f64,
     {
@@ -107,7 +120,10 @@ impl VM {
         use Value::Number;
         match (lhs, rhs) {
             (Number(a), Number(b)) => self.push(op(a, b).into()),
-        }
+            (_, _) => self.runtime_error(chunk, "Operands must be numbers")?,
+        };
+
+        Ok(())
     }
 
     /// Pushes a [Value] on to the value stack.
@@ -124,6 +140,27 @@ impl VM {
     #[inline(always)]
     fn pop(&mut self) -> Value {
         self.stack.pop().expect("value stack is empty")
+    }
+
+    /// Peeks at the value relative to the top of the stack.
+    ///
+    /// # Panics
+    ///
+    ///  * When the stack is empty
+    ///  * When the distance goes off the end of the stack
+    #[inline(always)]
+    #[allow(dead_code)]
+    fn peek(&self, distance: usize) -> Value {
+        // Copied this code from Crafting Interpreters, but I'm not sure how useful it will be.
+        *self
+            .stack
+            .get(self.stack.len() - 1 - distance)
+            .expect("peeked escaped bounds of the stack")
+    }
+
+    #[inline(always)]
+    fn reset_stack(&mut self) {
+        self.stack.clear()
     }
 }
 
