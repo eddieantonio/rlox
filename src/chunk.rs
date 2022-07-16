@@ -165,14 +165,6 @@ impl Chunk {
         u8::try_from(index).ok()
     }
 
-    // TODO
-    pub fn add_constant_usize(&mut self, value: Value) -> usize {
-        let index = self.constants.len();
-        // TODO: change signature to allow for checking for overflow!
-        self.constants.write(value);
-        index
-    }
-
     /// Returns the line number for whatever is at the given offset.
     pub fn line_number_for(&self, offset: usize) -> Option<usize> {
         self.lines.get(offset).copied()
