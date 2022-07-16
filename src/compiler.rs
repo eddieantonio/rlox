@@ -306,13 +306,19 @@ impl<'a> Compiler<'a> {
     /// Returns the token of the prefix in the process of being parsed.
     #[inline(always)]
     fn rule_from_previous(&self) -> ParserRule {
-        get_rule(self.parser.previous.token())
+        get_rule(self.previous_token())
     }
 
     /// Returns the token of the prefix in the process of being parsed.
     #[inline(always)]
     fn rule_from_current(&self) -> ParserRule {
         get_rule(self.parser.current.token())
+    }
+
+    /// Return the token (type) of the previous value. This is useful in prefix parser functions.
+    #[inline(always)]
+    fn previous_token(&self) -> Token {
+        self.parser.previous.token()
     }
 }
 
@@ -382,7 +388,7 @@ fn get_rule(token: Token) -> ParserRule {
 
 /// Parse '(' as a prefix. Assumes '(' has been consumed.
 fn grouping(compiler: &mut Compiler) {
-    debug_assert_eq!(Token::LeftParen, compiler.parser.previous.token());
+    debug_assert_eq!(Token::LeftParen, compiler.previous_token());
     compiler.expression();
     compiler
         .parser
@@ -391,7 +397,7 @@ fn grouping(compiler: &mut Compiler) {
 
 /// Parse a number literal as a prefix. Assumes number has been consumed.
 fn number(compiler: &mut Compiler) {
-    debug_assert_eq!(Token::Number, compiler.parser.previous.token());
+    debug_assert_eq!(Token::Number, compiler.previous_token());
     let value = compiler
         .parser
         .previous
@@ -403,7 +409,7 @@ fn number(compiler: &mut Compiler) {
 
 /// Parse an unary operator as a prefix. Assumes the operator has been consumed.
 fn unary(compiler: &mut Compiler) {
-    let operator = compiler.parser.previous.token();
+    let operator = compiler.previous_token();
 
     // Compile the operand, so that it's placed on the stack.
     compiler.parse_precedence(Precedence::Unary);
@@ -416,7 +422,7 @@ fn unary(compiler: &mut Compiler) {
 
 /// Parse a binary operator as an infix. Assumes the operator has been consumed.
 fn binary(compiler: &mut Compiler) {
-    let operator = compiler.parser.previous.token();
+    let operator = compiler.previous_token();
     let rule = get_rule(operator);
 
     compiler.parse_precedence(rule.higher_precedence());
