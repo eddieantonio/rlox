@@ -1,10 +1,26 @@
+//! Contains the Lox parser and bytecode compiler.
 use enum_map::enum_map;
 
 use crate::prelude::*;
 
+/////////////////////////////////////////// Public API ////////////////////////////////////////////
+
+/// Compiles the given Lox source code and, if succesful returns one bytecode [Chunk].
+pub fn compile(source: &str) -> crate::Result<Chunk> {
+    let parser = Parser::new(source);
+    let compiler = Compiler::new(parser);
+    compiler.compile()
+}
+
+///////////////////////////////////// Implementation details //////////////////////////////////////
+
+/// Precedence rules for [Token]s in Lox.
+///
+/// Precedence rules have a well-defined partial ordering ([PartialOrd]), which is required for use
+/// in the Pratt parsing algorithm.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq)]
 enum Precedence {
-    // Todo: Change to "undefined?
+    // Todo: Change to "Undefined?
     None,
     /// `=`
     Assignment,
@@ -28,8 +44,7 @@ enum Precedence {
     Primary,
 }
 
-type ParserFn = fn(&mut Compiler) -> ();
-
+/// A rule in the Pratt parser table. See [Compiler::parse_precedence()] for usage.
 #[derive(Copy, Clone)]
 struct ParserRule {
     prefix: Option<ParserFn>,
@@ -37,6 +52,11 @@ struct ParserRule {
     precedence: Precedence,
 }
 
+/// Any possible action taken from the parsing table. Actions take the entire compiler state, and
+/// convert it, usually emitting bytecode.
+type ParserFn = fn(&mut Compiler) -> ();
+
+/// Contains the parser state. For some strange reason, this also includes error status.
 #[derive(Debug)]
 struct Parser<'a> {
     scanner: Scanner<'a>,
@@ -46,12 +66,20 @@ struct Parser<'a> {
     panic_mode: bool,
 }
 
+/// Contains the compiler state, which includes the [Parser] and the current chunk being produced.
 struct Compiler<'a> {
     parser: Parser<'a>,
     compiling_chunk: Chunk,
 }
 
 impl Precedence {
+    /// Returns the next higher level of precedence.
+    ///
+    /// # Panics
+    ///
+    /// Panics if trying to obtain a higher-level of precedence than the maximum,
+    /// [Precedence::Primary], which is the precedence of literals and l-values.
+    #[inline]
     fn higher_precedence(self) -> Precedence {
         use Precedence::*;
         match self {
@@ -71,6 +99,8 @@ impl Precedence {
 }
 
 impl ParserRule {
+    /// Returns one level of precedence higher than the rule's precedence.
+    /// See [Precedence::higher_precedence()].
     #[inline(always)]
     fn higher_precedence(&self) -> Precedence {
         self.precedence.higher_precedence()
@@ -91,6 +121,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Update self.previous and self.current such that they move one token further in the token
+    /// stream.
     fn advance(&mut self) {
         self.previous = self.current.clone();
 
@@ -114,23 +146,30 @@ impl<'a> Parser<'a> {
         self.error_at_current(message);
     }
 
+    /// Emit a compiler error, located at the previous [Lexeme]. In Pratt parsing, this is the
+    /// handler you usually want to call, because the previous lexeme decided which [ParserRule]
+    /// was accepted.
     fn error(&mut self, message: &str) {
         self.error_at(self.previous.clone(), message)
     }
 
+    /// Emit a compiler error, located at the current [Lexeme].
     fn error_at_current(&mut self, message: &str) {
         self.error_at(self.current.clone(), message)
     }
 
+    /// Emit a compiler error, located at the given [Lexeme].
     fn error_at(&mut self, lexeme: Lexeme<'a>, message: &str) {
+        // *Attempt* to prevent a deluge of spurious syntax errors:
         if self.panic_mode {
             return;
         }
 
         self.panic_mode = true;
+        self.had_error = true;
 
+        // Print the actual message:
         eprint!("[line {}] Error:", lexeme.line());
-
         if lexeme.token() == Token::Eof {
             eprint!(" at end");
         } else if lexeme.token() == Token::Error {
@@ -138,9 +177,7 @@ impl<'a> Parser<'a> {
         } else {
             eprint!(" at '{}'", lexeme.text());
         }
-
         eprintln!(": {message}");
-        self.had_error = true;
     }
 }
 
@@ -167,6 +204,10 @@ impl<'a> Compiler<'a> {
         Ok(self.compiling_chunk)
     }
 
+    /// Signal the end of compilation.
+    // Note: Could consider "finalizing" compilation here by taking ownership of the compiler and
+    // returning some sort of "CompilationResult", making it impossible to write any more bytes to
+    // the now finished chunk.
     fn end_compiler(&mut self) {
         self.emit_return();
 
@@ -176,11 +217,10 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    /// The core of the Pratt parsing algorithm. See [Pratt1973].
+    /// The core of the Pratt parsing algorithm.
     ///
-    /// [Pratt1973]: http://hall.org.ua/halls/wizzard/pdf/Vaughan.Pratt.TDOP.pdf
+    /// See: <https://en.wikipedia.org/wiki/Operator-precedence_parser#Pratt_parsing>
     fn parse_precedence(&mut self, precedence: Precedence) {
-        // Get the next token.
         self.parser.advance();
 
         // What rule should we use right now?
@@ -188,6 +228,7 @@ impl<'a> Compiler<'a> {
         match prefix_rule {
             Some(parse_prefix) => parse_prefix(self),
             None => {
+                // TODO: better error message -- what are we even checking here?
                 self.parser.error("Expected expression");
                 return;
             }
@@ -203,19 +244,29 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /// Parse an expression.
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
     }
 
+    /// Appends [OpCode::Return] to current [Chunk].
     fn emit_return(&mut self) {
         unsafe { self.emit_byte(OpCode::Return as u8) }
     }
 
+    /// Appends [OpCode::Constant] to current [Chunk], using the current value.
     fn emit_constant(&mut self, value: Value) {
         let index = self.make_constant(value);
         unsafe { self.emit_bytes(OpCode::Constant as u8, index) }
     }
 
+    /// Appends a new constant to the current [Chunk].
+    ///
+    /// # Error
+    ///
+    /// When the constant index is greater than 255 (and thus can no longer be represented as a
+    /// u8), this signals a compiler error and returns `0u8`. The current [Chunk] can still be
+    /// appended to, however, it is invalid, and should not be emitted as a valid program.
     fn make_constant(&mut self, value: Value) -> u8 {
         let constant = self.current_chunk().add_constant_usize(value);
         match u8::try_from(constant) {
@@ -227,30 +278,29 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /// Appends an arbitrary byte to the current [Chunk].
+    #[inline(always)]
     unsafe fn emit_byte(&mut self, byte: u8) {
         let line = self.parser.previous.line();
         self.current_chunk().write_unchecked(byte, line);
     }
 
+    /// Appends two arbitrary bytes to the current [Chunk].
+    #[inline(always)]
     unsafe fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
         self.emit_byte(byte1);
         self.emit_byte(byte2);
     }
 
+    /// Returns the current [Chunk].
     fn current_chunk(&mut self) -> &mut Chunk {
         &mut self.compiling_chunk
     }
 }
 
-pub fn compile(source: &str) -> crate::Result<Chunk> {
-    let parser = Parser::new(source);
-    let compiler = Compiler::new(parser);
-
-    compiler.compile()
-}
-
 ////////////////////////////////////////// Parser rules ///////////////////////////////////////////
 
+/// Makes defining [ParserRule]s a bit cleaner looking.
 macro_rules! rule {
     ($prefix:expr, $infix:expr, $precedence:expr) => {
         ParserRule {
@@ -312,24 +362,28 @@ fn get_rule(token: Token) -> ParserRule {
     rules[token]
 }
 
+/// Parse '(' as a prefix. Assumes '(' has been consumed.
 fn grouping(compiler: &mut Compiler) {
+    debug_assert_eq!(Token::LeftParen, compiler.parser.previous.token());
     compiler.expression();
     compiler
         .parser
         .consume(Token::RightParen, "Expect ')' after grouping.");
 }
 
+/// Parse a number literal as a prefix. Assumes number has been consumed.
 fn number(compiler: &mut Compiler) {
-    assert_eq!(Token::Number, compiler.parser.previous.token());
+    debug_assert_eq!(Token::Number, compiler.parser.previous.token());
     let value = compiler
         .parser
         .previous
         .text()
         .parse::<f64>()
-        .expect("Token MUST parse as a float");
+        .expect("Internal error: Token::Number MUST parse as a float, but didn't?");
     compiler.emit_constant(value.into());
 }
 
+/// Parse an unary operator as a prefix. Assumes the operator has been consumed.
 fn unary(compiler: &mut Compiler) {
     let operator = compiler.parser.previous.token();
 
@@ -342,6 +396,7 @@ fn unary(compiler: &mut Compiler) {
     }
 }
 
+/// Parse a binary operator as an infix. Assumes the operator has been consumed.
 fn binary(compiler: &mut Compiler) {
     let operator = compiler.parser.previous.token();
     let rule = get_rule(operator);
@@ -353,5 +408,29 @@ fn binary(compiler: &mut Compiler) {
         Token::Star => unsafe { compiler.emit_byte(OpCode::Multiply as u8) },
         Token::Slash => unsafe { compiler.emit_byte(OpCode::Divide as u8) },
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn precedence_confidence_check() {
+        // High-level precedence (C-like)
+        assert!(Precedence::Assignment < Precedence::Or);
+        assert!(Precedence::Or < Precedence::And);
+        assert!(Precedence::And < Precedence::Equality);
+        assert!(Precedence::Equality < Precedence::Comparison);
+
+        // PEDMAS
+        // () has greater precedence than */
+        assert!(Precedence::Call > Precedence::Factor);
+        // */ has greater precedence than +-
+        assert!(Precedence::Factor > Precedence::Term);
+
+        // ``and should be one level of precedence higher than `or`
+        assert_eq!(Precedence::And, Precedence::Or.higher_precedence());
+        assert_eq!(Precedence::Factor, Precedence::Term.higher_precedence());
     }
 }
