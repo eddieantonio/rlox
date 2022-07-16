@@ -268,13 +268,11 @@ impl<'a> Compiler<'a> {
     /// u8), this signals a compiler error and returns `0u8`. The current [Chunk] can still be
     /// appended to, however, it is invalid, and should not be emitted as a valid program.
     fn make_constant(&mut self, value: Value) -> u8 {
-        let constant = self.current_chunk().add_constant_usize(value);
-        match u8::try_from(constant) {
-            Ok(index) => index,
-            Err(_) => {
-                self.parser.error("Too many constants in one chunk");
-                0
-            }
+        if let Some(index) = self.current_chunk().add_constant(value) {
+            index
+        } else {
+            self.parser.error("Too many constants in one chunk");
+            0
         }
     }
 
