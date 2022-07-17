@@ -303,7 +303,7 @@ impl<'a> Compiler<'a> {
     }
 
     /// Advance one token in scanner, such that:
-    /// ```ignore
+    /// ```text
     /// (previous, current) = (current, scanner.next_token())
     /// ```
     #[inline(always)]

@@ -97,7 +97,7 @@ impl<'a> VmWithChunk<'a> {
                 Some(Equal) => {
                     let rhs = self.pop();
                     let lhs = self.pop();
-                    self.push(lhs.lox_equal(&rhs).into());
+                    self.push(lhs.equal(&rhs).into());
                 }
                 Some(Greater) => self.binary_op(|a, b| a > b)?,
                 Some(Less) => self.binary_op(|a, b| a < b)?,
@@ -128,6 +128,7 @@ impl<'a> VmWithChunk<'a> {
         }
     }
 
+    /// Raises a runtime error
     fn runtime_error<T>(&mut self, message: &str) -> crate::Result<T> {
         eprintln!("{message}");
 
@@ -173,7 +174,7 @@ impl<'a> VmWithChunk<'a> {
         self.stack.pop().expect("value stack is empty")
     }
 
-    /// Peeks at the value relative to the top of the stack.
+    /// Peeks at the [Value] relative to the top of the stack.
     ///
     /// # Panics
     ///
@@ -189,6 +190,7 @@ impl<'a> VmWithChunk<'a> {
             .expect("peeked escaped bounds of the stack")
     }
 
+    /// Clears the stack.
     #[inline(always)]
     fn reset_stack(&mut self) {
         self.stack.clear()

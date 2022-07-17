@@ -62,23 +62,19 @@ impl Value {
         matches!(self, Value::Nil)
     }
 
-    /// Returns true if this value is a Lox's nil.
+    /// Returns true if this value is a Lox number.
     pub fn is_number(&self) -> bool {
         matches!(self, Value::Number(_))
     }
 
     /// Returns true if this value is "falsy".
     pub fn is_falsy(&self) -> bool {
-        match self {
-            Value::Nil => true,
-            Value::Boolean(false) => true,
-            _ => false,
-        }
+        matches!(self, Value::Nil | Value::Boolean(false))
     }
 
     /// Applies Lox's rules for equality, returning a Rust bool.
     #[inline]
-    pub fn lox_equal(&self, other: &Value) -> bool {
+    pub fn equal(&self, other: &Value) -> bool {
         use Value::*;
         match (self, other) {
             (Number(a), Number(b)) => a == b,
