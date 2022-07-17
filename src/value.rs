@@ -39,8 +39,29 @@ pub enum Value {
     Boolean(bool),
     /// All numbers in Lox are 64-bit floating point.
     Number(f64),
+    /// Instances and strings
+    Object(*mut Obj),
 }
 sa::assert_impl_all!(Value: Copy);
+
+/// A Lox object
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Obj {
+    // TODO: there should be an trait for Obj that grants access to common fields.
+    type_: ObjType,
+}
+
+/// What kind of object we can have.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ObjType {
+    String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjString {
+    obj: Obj,
+    string: String,
+}
 
 /// A collection of values. Useful for a constant pool.
 #[derive(Default, Debug, Clone)]
@@ -60,6 +81,11 @@ impl Value {
     /// Returns true if this value is a Lox's nil.
     pub fn is_nil(&self) -> bool {
         matches!(self, Value::Nil)
+    }
+
+    /// Returns true if this value is a Lox object.
+    pub fn is_obj(&self) -> bool {
+        matches!(self, Value::Object(_))
     }
 
     /// Returns true if this value is a Lox number.
@@ -85,12 +111,19 @@ impl Value {
     }
 }
 
+impl Obj {
+    pub fn obj_type(&self) -> ObjType {
+        self.type_
+    }
+}
+
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Value::Nil => write!(f, "nil"),
             Value::Number(num) => write!(f, "{num}"),
             Value::Boolean(value) => write!(f, "{value}"),
+            Value::Object(_) => todo!(),
         }
     }
 }
@@ -113,6 +146,13 @@ impl From<f64> for Value {
 impl From<bool> for Value {
     fn from(value: bool) -> Value {
         Value::Boolean(value)
+    }
+}
+
+// Convert a raw pointer to a Value.
+impl From<*mut Obj> for Value {
+    fn from(raw_pointer: *mut Obj) -> Value {
+        Value::Object(raw_pointer)
     }
 }
 
