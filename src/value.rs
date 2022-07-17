@@ -31,7 +31,7 @@ extern crate static_assertions as sa;
 /// let v: Value = option.into();
 /// assert_eq!("nil", v.to_string());
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// Nil. Doing anything with this is usually an error.
     Nil,
@@ -40,27 +40,20 @@ pub enum Value {
     /// All numbers in Lox are 64-bit floating point.
     Number(f64),
     /// Instances and strings
-    Object(*mut Obj),
+    Object(Obj),
 }
-sa::assert_impl_all!(Value: Copy);
 
 /// A Lox object
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Obj {
     // TODO: there should be an trait for Obj that grants access to common fields.
-    type_: ObjType,
+    contents: ObjType,
 }
 
 /// What kind of object we can have.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ObjType {
-    String,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ObjString {
-    obj: Obj,
-    string: String,
+pub enum ObjType {
+    LoxString(String),
 }
 
 /// A collection of values. Useful for a constant pool.
@@ -111,12 +104,6 @@ impl Value {
     }
 }
 
-impl Obj {
-    pub fn obj_type(&self) -> ObjType {
-        self.type_
-    }
-}
-
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -149,13 +136,6 @@ impl From<bool> for Value {
     }
 }
 
-// Convert a raw pointer to a Value.
-impl From<*mut Obj> for Value {
-    fn from(raw_pointer: *mut Obj) -> Value {
-        Value::Object(raw_pointer)
-    }
-}
-
 // Convert any Rust option of float to a Lox value.
 impl From<Option<f64>> for Value {
     fn from(option: Option<f64>) -> Value {
@@ -179,7 +159,7 @@ impl ValueArray {
     /// Returns a [Value] at the given index. If the index is out of bounds, this returns `None`.
     #[inline]
     pub fn get(&self, index: usize) -> Option<Value> {
-        self.values.get(index).copied()
+        self.values.get(index).cloned()
     }
 
     /// Add a new [Value] to the array

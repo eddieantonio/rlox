@@ -174,22 +174,6 @@ impl<'a> VmWithChunk<'a> {
         self.stack.pop().expect("value stack is empty")
     }
 
-    /// Peeks at the [Value] relative to the top of the stack.
-    ///
-    /// # Panics
-    ///
-    ///  * When the stack is empty
-    ///  * When the distance goes off the end of the stack
-    #[inline(always)]
-    #[allow(dead_code)]
-    fn peek(&self, distance: usize) -> Value {
-        // Copied this code from Crafting Interpreters, but I'm not sure how useful it will be.
-        *self
-            .stack
-            .get(self.stack.len() - 1 - distance)
-            .expect("peeked escaped bounds of the stack")
-    }
-
     /// Clears the stack.
     #[inline(always)]
     fn reset_stack(&mut self) {
