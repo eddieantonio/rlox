@@ -8,6 +8,5 @@ trace_execution = []
 print_code = []
 
 [dependencies]
-enum-map = "2.4.0"
 static_assertions = "1.1.0"
 thiserror = "1.0.31"

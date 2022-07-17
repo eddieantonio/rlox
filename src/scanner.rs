@@ -30,8 +30,6 @@
 //! - TokenType, in this code it's a [Token].
 //! - lexme, in this code it's [Lexeme::text()].
 
-use enum_map::Enum;
-
 /// A lexme from one contiguous string from some Lox source code.
 #[derive(Clone, Debug)]
 pub struct Lexeme<'a> {
@@ -44,7 +42,7 @@ pub struct Lexeme<'a> {
 }
 
 /// What _type_ of [Lexeme] you have.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum Token {
     // Single-character tokens.

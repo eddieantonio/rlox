@@ -1,6 +1,4 @@
 //! Contains the Lox parser and bytecode compiler.
-use enum_map::enum_map;
-
 use crate::chunk::WrittenOpcode;
 use crate::prelude::*;
 
@@ -349,11 +347,10 @@ macro_rules! rule {
     };
 }
 
+#[rustfmt::skip]
 fn get_rule(token: Token) -> ParserRule {
     use Token::*;
-
-    #[rustfmt::skip]
-    let rules = enum_map! {
+    match token {
         //                     Prefix          Infix         Precedence
         LeftParen    => rule!{ Some(grouping), None,         Precedence::None },
         RightParen   => rule!{ None,           None,         Precedence::None },
@@ -395,9 +392,7 @@ fn get_rule(token: Token) -> ParserRule {
         While        => rule!{ None,           None,         Precedence::None },
         Error        => rule!{ None,           None,         Precedence::None },
         Eof          => rule!{ None,           None,         Precedence::None },
-    };
-
-    rules[token]
+    }
 }
 
 /// Parse '(' as a prefix. Assumes '(' has been consumed.
