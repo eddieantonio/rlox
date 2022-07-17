@@ -372,7 +372,7 @@ fn get_rule(token: Token) -> ParserRule {
         Less         => rule!{ None,           Some(binary), Precedence::Comparison },
         LessEqual    => rule!{ None,           Some(binary), Precedence::Comparison },
         Identifier   => rule!{ None,           None,         Precedence::None },
-        StrLiteral   => rule!{ None,           None,         Precedence::None },
+        StrLiteral   => rule!{ Some(string),   None,         Precedence::None },
         Number       => rule!{ Some(number),   None,         Precedence::None },
         And          => rule!{ None,           None,         Precedence::None },
         Class        => rule!{ None,           None,         Precedence::None },
@@ -459,6 +459,19 @@ fn literal(compiler: &mut Compiler) {
         Token::True => compiler.emit_instruction(OpCode::True),
         _ => unreachable!(),
     };
+}
+
+fn string(compiler: &mut Compiler) {
+    debug_assert_eq!(Token::StrLiteral, compiler.previous_token());
+
+    let literal = compiler.parser.previous.text();
+    debug_assert!(literal.len() >= 2);
+    debug_assert!(literal.starts_with('"'));
+    debug_assert!(literal.ends_with('"'));
+
+    let last_index = literal.len() - 1;
+    let contents = &literal[1..last_index];
+    compiler.emit_constant(contents.into());
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////

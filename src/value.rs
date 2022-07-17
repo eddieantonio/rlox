@@ -86,9 +86,30 @@ impl Value {
         matches!(self, Value::Number(_))
     }
 
+    /// Returns true if this value is a Lox string.
+    pub fn is_string(&self) -> bool {
+        matches!(
+            self,
+            // XXX: this data structure is terrible!
+            Value::Object(Obj {
+                contents: ObjType::LoxString(_)
+            })
+        )
+    }
+
     /// Returns true if this value is "falsy".
     pub fn is_falsy(&self) -> bool {
         matches!(self, Value::Nil | Value::Boolean(false))
+    }
+
+    /// Returns a reference to the string contents, if this value is a Lox string.
+    pub fn to_str(&self) -> Option<&str> {
+        match self {
+            Value::Object(Obj {
+                contents: ObjType::LoxString(string),
+            }) => Some(string),
+            _ => None,
+        }
     }
 
     /// Applies Lox's rules for equality, returning a Rust bool.
@@ -99,6 +120,11 @@ impl Value {
             (Number(a), Number(b)) => a == b,
             (Boolean(a), Boolean(b)) => a == b,
             (Nil, Nil) => true,
+            (Object(_), Object(_)) => self
+                .to_str()
+                .zip(other.to_str())
+                .map(|(a, b)| a == b)
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -110,7 +136,7 @@ impl std::fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Number(num) => write!(f, "{num}"),
             Value::Boolean(value) => write!(f, "{value}"),
-            Value::Object(_) => todo!(),
+            Value::Object(obj) => obj.fmt(f),
         }
     }
 }
@@ -150,6 +176,24 @@ impl From<Option<bool>> for Value {
     }
 }
 
+// Convert any Rust (owned) string to a Lox value.
+impl From<String> for Value {
+    fn from(owned: String) -> Value {
+        Value::Object(Obj {
+            contents: ObjType::LoxString(owned),
+        })
+    }
+}
+
+// Copy any Rust (borrowed) string to a Lox value.
+impl From<&str> for Value {
+    fn from(borrowed: &str) -> Value {
+        Value::Object(Obj {
+            contents: ObjType::LoxString(borrowed.to_string()),
+        })
+    }
+}
+
 impl ValueArray {
     /// Return an empty [ValueArray].
     pub fn new() -> Self {
@@ -176,5 +220,15 @@ impl ValueArray {
     /// Returns true if there are no values.
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
+    }
+}
+
+impl std::fmt::Display for Obj {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Obj {
+                contents: ObjType::LoxString(x),
+            } => write!(f, "{}", x),
+        }
     }
 }

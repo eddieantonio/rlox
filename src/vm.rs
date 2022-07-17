@@ -101,7 +101,28 @@ impl<'a> VmWithChunk<'a> {
                 }
                 Some(Greater) => self.binary_op(|a, b| a > b)?,
                 Some(Less) => self.binary_op(|a, b| a < b)?,
-                Some(Add) => self.binary_op(|a, b| a + b)?,
+                Some(Add) => {
+                    // I'm so sorry about this code 😭😭😭
+                    // TODO: utilize peek() which should return a REFERENCE!
+                    let rhs = self.pop();
+                    let lhs = self.pop();
+
+                    match (&lhs, &rhs) {
+                        (Value::Number(a), Value::Number(b)) => self.push((a + b).into()),
+                        (Value::Object(_), Value::Object(_)) => {
+                            let concatenated = lhs
+                                .to_str()
+                                .zip(rhs.to_str())
+                                .map(|(a, b)| format!("{a}{b}"));
+                            if let Some(string) = concatenated {
+                                self.push(string.into());
+                            } else {
+                                self.runtime_error("Can only add numbers or strings")?;
+                            }
+                        }
+                        _ => self.runtime_error("Can only add numbers or strings")?,
+                    }
+                }
                 Some(Subtract) => self.binary_op(|a, b| a - b)?,
                 Some(Multiply) => self.binary_op(|a, b| a * b)?,
                 Some(Divide) => self.binary_op(|a, b| a / b)?,
