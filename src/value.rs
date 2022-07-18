@@ -35,9 +35,10 @@ extern crate static_assertions as sa;
 /// let v: Value = option.into();
 /// assert_eq!("nil", v.to_string());
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum Value {
     /// Nil. Doing anything with this is usually an error.
+    #[default]
     Nil,
     /// A boolean.
     Boolean(bool),
@@ -142,13 +143,6 @@ impl std::fmt::Display for Value {
             Value::Boolean(value) => write!(f, "{value}"),
             Value::Object(obj) => obj.fmt(f),
         }
-    }
-}
-
-// Uninitialized values are nil.
-impl Default for Value {
-    fn default() -> Value {
-        Value::Nil
     }
 }
 
