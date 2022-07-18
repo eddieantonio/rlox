@@ -12,20 +12,24 @@ extern crate static_assertions as sa;
 /// # use rlox::value::Value;
 /// let float: f64 = 0.5;
 /// let v: Value = float.into();
-/// assert_eq!("0.5".to_owned(), v.to_string());
+/// assert_eq!("0.5", v.to_string());
 ///
 /// let switch = false;
 /// let v: Value = switch.into();
 /// assert_eq!("false", v.to_string());
 /// ```
 ///
-/// This even works with `Option<>`: `None` turns [Value::Nil].
+/// This even works with `Option<T>`: `None` turns [Value::Nil].
 ///
 /// ```
 /// # use rlox::value::Value;
 /// let option = Some(0.25);
 /// let v: Value = option.into();
 /// assert_eq!("0.25", v.to_string());
+///
+/// let option = Some(true);
+/// let v: Value = option.into();
+/// assert_eq!("true", v.to_string());
 ///
 /// let option: Option<f64> = None;
 /// let v: Value = option.into();
@@ -150,6 +154,7 @@ impl Default for Value {
 
 // Convert any Rust float into a Lox value.
 impl From<f64> for Value {
+    #[inline(always)]
     fn from(float: f64) -> Value {
         Value::Number(float)
     }
@@ -157,22 +162,9 @@ impl From<f64> for Value {
 
 // Convert any Rust float into a Lox value.
 impl From<bool> for Value {
+    #[inline(always)]
     fn from(value: bool) -> Value {
         Value::Boolean(value)
-    }
-}
-
-// Convert any Rust option of float to a Lox value.
-impl From<Option<f64>> for Value {
-    fn from(option: Option<f64>) -> Value {
-        option.map(Value::Number).unwrap_or(Value::Nil)
-    }
-}
-
-// Convert any Rust option of bool to a Lox value.
-impl From<Option<bool>> for Value {
-    fn from(option: Option<bool>) -> Value {
-        option.map(Value::Boolean).unwrap_or(Value::Nil)
     }
 }
 
@@ -191,6 +183,17 @@ impl From<&str> for Value {
         Value::Object(Obj {
             contents: ObjType::LoxString(borrowed.to_string()),
         })
+    }
+}
+
+// Convert any Rust option of float to a Lox value.
+impl<T> From<Option<T>> for Value
+where
+    T: Into<Value>,
+{
+    #[inline]
+    fn from(option: Option<T>) -> Value {
+        option.map(Into::into).unwrap_or(Value::Nil)
     }
 }
 
