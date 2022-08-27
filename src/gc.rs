@@ -1,17 +1,35 @@
 //! Garbage Collector collector (GC) with `'static` lifetime.
 //! Normally "GC" stands for "garbage collector", but in this codebase, it's just "garbage" 🙃
 
+/// A garbage collector, which is really more of a big store of all dynamic data in the
+/// application. For now, it's just string data, and there is no reference counting so all strings
+/// are kept forever until the GC is dropped. Right now it literally collects garbage. Forever 😇
 #[derive(Clone, Debug, Default)]
 pub struct GC {
     strings: Vec<String>,
 }
 
-/// A token that indicates that the global static [GC] has been installed.
+/// A token that indicates that the global static [GC] has been installed. The only way to obtain
+/// this token is to install the GC somehow (for example, by calling [ActiveGC::install]).
 /// When this token is dropped, the global static GC will be uninstalled and dropped.
+///
+/// ```
+/// # use rlox::gc::ActiveGC;
+/// # use rlox::value::Value;
+/// let gc = ActiveGC::install();
+///
+/// // Now the GC is active and can be used.
+/// assert_eq!(0, ActiveGC::n_strings());
+///
+/// // Strings in Lox **require** the active GC:
+/// let lox_string: Value = "hello".into();
+/// assert_eq!(1, ActiveGC::n_strings());
+/// // when the gc gets dropped (goes out of scope), the GC is automatically uninstalled.
+/// ```
 #[derive(Debug)]
 pub struct ActiveGC(());
 
-/// The actual static [GC] instance. Install with `into_active_gc()`.
+/// The actual static (global) [GC] instance. Install with `into_active_gc()`.
 static mut ACTIVE_GC: Option<GC> = None;
 
 impl GC {
@@ -21,7 +39,7 @@ impl GC {
         self.strings.iter().rev().next().as_ref().unwrap()
     }
 
-    /// Consume self and convert it into the active [GC].
+    /// Consume self and convert it into the [ActiveGC].
     #[must_use]
     pub fn into_active_gc(self) -> ActiveGC {
         unsafe {
@@ -30,17 +48,25 @@ impl GC {
         ActiveGC(())
     }
 
-    #[cfg(test)]
+    /// Return how many strings are currently stored.
     fn n_strings(&self) -> usize {
         self.strings.len()
     }
 }
 
 impl ActiveGC {
+    /// Create a [GC] and install it as the active GC.
+    ///
+    /// # Panics
+    ///
+    /// Only one [GC] instance can be active at a time. The process panics
+    /// **non-deterministically** if you try to install a [GC] while one is already installed.
+    #[must_use]
     pub fn install() -> ActiveGC {
         GC::default().into_active_gc()
     }
 
+    /// Get the current active [GC].
     fn get() -> &'static mut GC {
         unsafe { &mut ACTIVE_GC }
             .as_mut()
@@ -49,19 +75,20 @@ impl ActiveGC {
 
     // All of these delegate to the active [GC] instance:
 
+    /// Store a string in the active [GC].
     pub fn store_string(s: String) -> &'static str {
         Self::get().store_string(s)
     }
 
-    #[cfg(test)]
-    fn n_strings() -> usize {
+    /// Return how many strings are currently stored.
+    pub fn n_strings() -> usize {
         Self::get().n_strings()
     }
 }
 
 impl Drop for ActiveGC {
     fn drop(&mut self) {
-        // Uninstall the GC by taking ownership.
+        // Uninstall the GC by taking ownership of it.
         unsafe {
             ACTIVE_GC
                 .take()
