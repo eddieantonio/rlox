@@ -37,6 +37,10 @@ impl GC {
 }
 
 impl ActiveGC {
+    pub fn install() -> ActiveGC {
+        GC::default().into_active_gc()
+    }
+
     fn get() -> &'static mut GC {
         unsafe { &mut ACTIVE_GC }
             .as_mut()

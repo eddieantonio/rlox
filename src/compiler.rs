@@ -1,12 +1,14 @@
 //! Contains the Lox parser and bytecode compiler.
 use crate::chunk::WrittenOpcode;
+use crate::gc::ActiveGC;
 use crate::prelude::*;
 
 /////////////////////////////////////////// Public API ////////////////////////////////////////////
 
-/// Compiles the given Lox source code and, if succesful returns one bytecode [Chunk].
-pub fn compile(source: &str) -> crate::Result<Chunk> {
-    let parser = Parser::new(source);
+/// Compiles the given Lox source code and, if successful returns one bytecode [Chunk].
+/// An [ActiveGC] is required because string literals will be allocated and owned by the GC.
+pub fn compile(source: &str, gc: &'_ ActiveGC) -> crate::Result<Chunk> {
+    let parser = Parser::new(source, gc);
     let compiler = Compiler::new(parser);
     compiler.compile()
 }
@@ -56,6 +58,10 @@ struct ParserRule {
 type ParserFn = fn(&mut Compiler) -> ();
 
 /// Contains the parser state. For some strange reason, this also includes error status.
+///
+/// The reference to [ActiveGC] is required, but never accessed, because having a reference to it
+/// guarentees that the static (global) garbage collector is installed, We need all this so that
+/// string literals can be owned by the GC for the running program.
 #[derive(Debug)]
 struct Parser<'a> {
     scanner: Scanner<'a>,
@@ -63,6 +69,7 @@ struct Parser<'a> {
     previous: Lexeme<'a>,
     had_error: bool,
     panic_mode: bool,
+    _active_gc: &'a ActiveGC,
 }
 
 /// Contains the compiler state, which includes the [Parser] and the current chunk being produced.
@@ -107,7 +114,7 @@ impl ParserRule {
 }
 
 impl<'a> Parser<'a> {
-    fn new(source: &'a str) -> Parser {
+    fn new(source: &'a str, active_gc: &'a ActiveGC) -> Parser<'a> {
         let mut scanner = Scanner::new(source);
         let first_token = scanner.scan_token();
         let error_token = scanner.make_sentinel("<before first token>");
@@ -118,6 +125,7 @@ impl<'a> Parser<'a> {
             current: first_token,
             had_error: false,
             panic_mode: false,
+            _active_gc: active_gc,
         }
     }
 

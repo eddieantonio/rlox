@@ -1,6 +1,7 @@
 //! The bytecode virtual machine.
 
 use crate::compiler;
+use crate::gc::ActiveGC;
 use crate::prelude::{Chunk, InterpretationError, OpCode, Value};
 
 /// Used as the minimum capacity of the stack.
@@ -23,6 +24,8 @@ struct VmWithChunk<'a> {
     /// Value stack -- modified as elements are pushed and popped from the stack.
     stack: Vec<Value>,
     chunk: &'a Chunk,
+    /// We don't access the GC directly, but we need it to live as long as the VM.
+    _active_gc: &'a ActiveGC,
 }
 
 /// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
@@ -48,11 +51,13 @@ macro_rules! current_ip {
 impl VM {
     /// Interpret some the Lox bytecode in the given [Chunk].
     pub fn interpret(&mut self, source: &str) -> crate::Result<()> {
-        let chunk = compiler::compile(source)?;
+        let active_gc = ActiveGC::install();
+        let chunk = compiler::compile(source, &active_gc)?;
         let mut vm = VmWithChunk {
             ip: 0,
             stack: Vec::with_capacity(STACK_SIZE),
             chunk: &chunk,
+            _active_gc: &active_gc,
         };
         vm.run()
     }
