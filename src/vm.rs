@@ -114,16 +114,8 @@ impl<'a> VmWithChunk<'a> {
 
                     match (&lhs, &rhs) {
                         (Value::Number(a), Value::Number(b)) => self.push((a + b).into()),
-                        (Value::Object(_), Value::Object(_)) => {
-                            let concatenated = lhs
-                                .to_str()
-                                .zip(rhs.to_str())
-                                .map(|(a, b)| format!("{a}{b}"));
-                            if let Some(string) = concatenated {
-                                self.push(string.into());
-                            } else {
-                                self.runtime_error("Can only add numbers or strings")?;
-                            }
+                        (Value::LoxString(a), Value::LoxString(b)) => {
+                            self.push(format!("{a}{b}").into());
                         }
                         _ => self.runtime_error("Can only add numbers or strings")?,
                     }

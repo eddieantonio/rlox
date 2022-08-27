@@ -1,10 +1,13 @@
 //! Representation of values in Lox.
 
+use crate::gc::ActiveGC;
+
 extern crate static_assertions as sa;
 
 /// A Lox runtime value.
 ///
-/// Currently, only numbers ([f64]), booleans, and nil are supported.
+/// Currently, numbers ([f64]), booleans, and nil are supported.
+/// To store strings, the global [ActiveGC] **must** be installed.
 ///
 /// You can create a Lox value from its equivalent Rust type:
 ///
@@ -35,6 +38,22 @@ extern crate static_assertions as sa;
 /// let v: Value = option.into();
 /// assert_eq!("nil", v.to_string());
 /// ```
+///
+/// # Strings
+///
+/// String data is owned and stored in the current [ActiveGC].  If an [ActiveGC] is not installed,
+/// the process will panic since there is nowhere to store the string data.
+///
+/// ```
+/// # use rlox::gc::ActiveGC;
+/// # use rlox::value::Value;
+/// let _gc = rlox::gc::ActiveGC::install();
+/// let string = "Hello".to_owned();
+/// let v: Value = string.into();
+/// assert_eq!(true, v.is_string());
+/// assert_eq!(false, v.is_falsy());
+/// // _gc will be dropped, deallocating the GC and all strings it owns
+/// ```
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum Value {
     /// Nil. Doing anything with this is usually an error.
@@ -44,21 +63,8 @@ pub enum Value {
     Boolean(bool),
     /// All numbers in Lox are 64-bit floating point.
     Number(f64),
-    /// Instances and strings
-    Object(Obj),
-}
-
-/// A Lox object
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Obj {
-    // TODO: there should be an trait for Obj that grants access to common fields.
-    contents: ObjType,
-}
-
-/// What kind of object we can have.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ObjType {
-    LoxString(String),
+    /// Strings (the owned contents belong to the [ActiveGC])
+    LoxString(&'static str),
 }
 
 /// A collection of values. Useful for a constant pool.
@@ -83,7 +89,7 @@ impl Value {
 
     /// Returns true if this value is a Lox object.
     pub fn is_obj(&self) -> bool {
-        matches!(self, Value::Object(_))
+        unimplemented!("object types don't exist yet");
     }
 
     /// Returns true if this value is a Lox number.
@@ -93,13 +99,7 @@ impl Value {
 
     /// Returns true if this value is a Lox string.
     pub fn is_string(&self) -> bool {
-        matches!(
-            self,
-            // XXX: this data structure is terrible!
-            Value::Object(Obj {
-                contents: ObjType::LoxString(_)
-            })
-        )
+        matches!(self, Value::LoxString(_))
     }
 
     /// Returns true if this value is "falsy".
@@ -110,9 +110,7 @@ impl Value {
     /// Returns a reference to the string contents, if this value is a Lox string.
     pub fn to_str(&self) -> Option<&str> {
         match self {
-            Value::Object(Obj {
-                contents: ObjType::LoxString(string),
-            }) => Some(string),
+            Value::LoxString(string) => Some(string),
             _ => None,
         }
     }
@@ -125,11 +123,7 @@ impl Value {
             (Number(a), Number(b)) => a == b,
             (Boolean(a), Boolean(b)) => a == b,
             (Nil, Nil) => true,
-            (Object(_), Object(_)) => self
-                .to_str()
-                .zip(other.to_str())
-                .map(|(a, b)| a == b)
-                .unwrap_or(false),
+            (LoxString(a), LoxString(b)) => a == b,
             _ => false,
         }
     }
@@ -141,7 +135,7 @@ impl std::fmt::Display for Value {
             Value::Nil => write!(f, "nil"),
             Value::Number(num) => write!(f, "{num}"),
             Value::Boolean(value) => write!(f, "{value}"),
-            Value::Object(obj) => obj.fmt(f),
+            Value::LoxString(string) => write!(f, "{string}"),
         }
     }
 }
@@ -165,18 +159,16 @@ impl From<bool> for Value {
 // Convert any Rust (owned) string to a Lox value.
 impl From<String> for Value {
     fn from(owned: String) -> Value {
-        Value::Object(Obj {
-            contents: ObjType::LoxString(owned),
-        })
+        let reference = ActiveGC::store_string(owned);
+        Value::LoxString(reference)
     }
 }
 
 // Copy any Rust (borrowed) string to a Lox value.
 impl From<&str> for Value {
     fn from(borrowed: &str) -> Value {
-        Value::Object(Obj {
-            contents: ObjType::LoxString(borrowed.to_string()),
-        })
+        let reference = ActiveGC::store_string(borrowed.to_owned());
+        Value::LoxString(reference)
     }
 }
 
@@ -217,15 +209,5 @@ impl ValueArray {
     /// Returns true if there are no values.
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
-    }
-}
-
-impl std::fmt::Display for Obj {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Obj {
-                contents: ObjType::LoxString(x),
-            } => write!(f, "{}", x),
-        }
     }
 }
