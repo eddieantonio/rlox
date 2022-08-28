@@ -54,7 +54,7 @@ extern crate static_assertions as sa;
 /// assert_eq!(false, v.is_falsy());
 /// // _gc will be dropped, deallocating the GC and all strings it owns
 /// ```
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum Value {
     /// Nil. Doing anything with this is usually an error.
     #[default]
@@ -108,7 +108,7 @@ impl Value {
     }
 
     /// Returns a reference to the string contents, if this value is a Lox string.
-    pub fn to_str(&self) -> Option<&str> {
+    pub fn to_str(&self) -> Option<&'static str> {
         match self {
             Value::LoxString(string) => Some(string),
             _ => None,

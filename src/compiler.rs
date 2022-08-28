@@ -300,27 +300,34 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    /// Parse an expression.
-    fn expression(&mut self) {
-        self.parse_precedence(Precedence::Assignment);
+    fn identifier_constant(&mut self, lexeme: Lexeme) -> u8 {
+        self.make_constant(lexeme.text().into())
     }
 
-    fn expression_statement(&mut self) {
-        self.expression();
-        self.parser.consume(
-            Token::Semicolon,
-            // A better error message would highlight the statement,
-            // then show where the semicolon is PROBABLY missing.
-            "expected semicolon to end this statement",
-        );
-        // Expressions have 0 stack effect, meaning they can't leave anything on the stack.
-        // Expressions produce a thing on the stack, and we need to get rid of it!
-        self.emit_instruction(OpCode::Pop);
+    fn parse_variable(&mut self, error_message: &'static str) -> u8 {
+        self.parser.consume(Token::Identifier, error_message);
+        // XXX: what is happening here?
+        let lexeme = self.parser.previous.clone();
+        self.identifier_constant(lexeme)
+    }
+
+    fn define_variable(&mut self, global: u8) {
+        self.emit_instruction(OpCode::DefineGlobal)
+            .with_operand(global);
+    }
+
+    fn named_variable(&mut self, lexeme: Lexeme) {
+        let arg = self.identifier_constant(lexeme);
+        self.emit_instruction(OpCode::GetGlobal).with_operand(arg);
     }
 
     /// Parse a declaration.
     fn declaration(&mut self) {
-        self.statement();
+        if self.match_and_advance(Token::Var) {
+            self.var_statement();
+        } else {
+            self.statement();
+        }
 
         if self.parser.panic_mode {
             self.parser.synchronize();
@@ -334,6 +341,41 @@ impl<'a> Compiler<'a> {
         } else {
             self.expression_statement();
         }
+    }
+
+    /// Parse an expression.
+    fn expression(&mut self) {
+        self.parse_precedence(Precedence::Assignment);
+    }
+
+    /// Parse a variable declaration. Assumes `var` has already been consumed
+    fn var_statement(&mut self) {
+        let global = self.parse_variable("need a variable name after var");
+
+        if self.match_and_advance(Token::Equal) {
+            self.expression();
+        } else {
+            self.emit_instruction(OpCode::Nil);
+        }
+
+        self.parser
+            .consume(Token::Semicolon, "expect ; after this variable declaration");
+
+        self.define_variable(global);
+    }
+
+    /// Parse an expression statement (e.g., assignments, function calls).
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.parser.consume(
+            Token::Semicolon,
+            // A better error message would highlight the statement,
+            // then show where the semicolon is PROBABLY missing.
+            "expected semicolon to end this statement",
+        );
+        // Expressions have 0 stack effect, meaning they can't leave anything on the stack.
+        // Expressions produce a thing on the stack, and we need to get rid of it!
+        self.emit_instruction(OpCode::Pop);
     }
 
     /// Parse a print statement. Assumes `print` has already been consumed.
@@ -472,7 +514,7 @@ fn get_rule(token: Token) -> ParserRule {
         GreaterEqual => rule!{ None,           Some(binary), Precedence::Comparison },
         Less         => rule!{ None,           Some(binary), Precedence::Comparison },
         LessEqual    => rule!{ None,           Some(binary), Precedence::Comparison },
-        Identifier   => rule!{ None,           None,         Precedence::None },
+        Identifier   => rule!{ Some(variable), None,         Precedence::None },
         StrLiteral   => rule!{ Some(string),   None,         Precedence::None },
         Number       => rule!{ Some(number),   None,         Precedence::None },
         And          => rule!{ None,           None,         Precedence::None },
@@ -573,6 +615,10 @@ fn string(compiler: &mut Compiler) {
     let last_index = literal.len() - 1;
     let contents = &literal[1..last_index];
     compiler.emit_constant(contents.into());
+}
+
+fn variable(compiler: &mut Compiler) {
+    compiler.named_variable(compiler.parser.previous.clone());
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////

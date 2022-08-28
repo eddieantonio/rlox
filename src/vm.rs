@@ -1,5 +1,7 @@
 //! The bytecode virtual machine.
 
+use std::collections::HashMap;
+
 use crate::compiler;
 use crate::gc::ActiveGC;
 use crate::prelude::{Chunk, InterpretationError, OpCode, Value};
@@ -24,6 +26,8 @@ struct VmWithChunk<'a> {
     /// Value stack -- modified as elements are pushed and popped from the stack.
     stack: Vec<Value>,
     chunk: &'a Chunk,
+    /// The globals in this program.
+    globals: HashMap<&'a str, Value>,
     /// We don't access the GC directly, but we need it to live as long as the VM.
     _active_gc: &'a ActiveGC,
 }
@@ -57,6 +61,7 @@ impl VM {
             ip: 0,
             stack: Vec::with_capacity(STACK_SIZE),
             chunk: &chunk,
+            globals: HashMap::default(),
             _active_gc: &active_gc,
         };
         vm.run()
@@ -105,6 +110,32 @@ impl<'a> VmWithChunk<'a> {
                 Some(False) => self.push(false.into()),
                 Some(Pop) => {
                     self.pop();
+                }
+                Some(GetGlobal) => {
+                    let name = next_bytecode!(self, chunk)
+                        .expect("there should be an operand")
+                        .resolve_constant()
+                        .expect("there should be a constant here")
+                        .to_str()
+                        .expect("the name must be a string");
+
+                    match self.globals.get(name) {
+                        Some(&value) => self.push(value),
+                        None => {
+                            let message = format!("undefined global variable: {name}");
+                            self.runtime_error(&message)?
+                        }
+                    };
+                }
+                Some(DefineGlobal) => {
+                    let name = next_bytecode!(self, chunk)
+                        .expect("there should be an operand")
+                        .resolve_constant()
+                        .expect("there should be a constant here")
+                        .to_str()
+                        .expect("the name must be a string");
+                    let value = self.pop();
+                    self.globals.insert(name, value);
                 }
                 Some(Equal) => {
                     let rhs = self.pop();

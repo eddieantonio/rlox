@@ -38,6 +38,8 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
         True => simple_instruction("OP_TRUE", offset),
         False => simple_instruction("OP_FALSE", offset),
         Pop => simple_instruction("OP_POP", offset),
+        GetGlobal => constant_instruction("OP_GET_GLOBAL", c, offset),
+        DefineGlobal => constant_instruction("OP_DEFINE_GLOBAL", c, offset),
         Equal => simple_instruction("OP_EQUAL", offset),
         Greater => simple_instruction("OP_GREATER", offset),
         Less => simple_instruction("OP_LESS", offset),
@@ -55,12 +57,12 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
 /////////////////////////////////////// Instruction printers ///////////////////////////////////////
 
 fn simple_instruction(name: &str, offset: usize) -> usize {
-    println!("{name:>14}");
+    println!("{name:>16}");
     offset + 1
 }
 
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
-    print!("{name:>14}");
+    print!("{name:>16}");
 
     let (index, value) = chunk
         .get(offset + 1)
