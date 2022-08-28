@@ -8,5 +8,6 @@ trace_execution = []
 print_code = []
 
 [dependencies]
+serial_test = "0.9.0"
 static_assertions = "1.1.0"
 thiserror = "1.0.31"

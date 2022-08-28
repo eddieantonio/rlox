@@ -120,9 +120,14 @@ impl<T> VecExtension<T> for Vec<T> {
 
 #[cfg(test)]
 mod test {
+    // Since the active GC is SHARED, MUTABLE STATE 👹, these tests **must** run in serial, or else
+    // they will trample over each others' GC :/
+    use serial_test::serial;
+
     use super::*;
 
     #[test]
+    #[serial]
     fn test_gc() {
         let mut gc = GC::default();
         let original = "hello".to_owned();
@@ -132,6 +137,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn test_ownership() {
         let gc = GC::default();
         let _active_gc = gc.into_active_gc();
@@ -143,12 +149,14 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
+    #[serial]
+    #[should_panic(expected = "Tried to get active GC")]
     fn test_using_active_gc_when_not_installed() {
         ActiveGC::store_string("🎷".to_owned());
     }
 
     #[test]
+    #[serial]
     #[should_panic(expected = "Tried to get active GC")]
     fn test_using_active_gc_after_drop() {
         let gc = GC::default();
