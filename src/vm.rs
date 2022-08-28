@@ -75,8 +75,12 @@ impl<'a> VmWithChunk<'a> {
 
                 // Prints the current stack:
                 print!("        ");
-                for value in self.stack.iter() {
-                    print!("[ {value:?} ]")
+                if self.stack.is_empty() {
+                    print!("<empty>");
+                } else {
+                    for value in self.stack.iter() {
+                        print!("[ {value:?} ]")
+                    }
                 }
                 println!();
 
@@ -99,6 +103,9 @@ impl<'a> VmWithChunk<'a> {
                 Some(Nil) => self.push(Value::Nil),
                 Some(True) => self.push(true.into()),
                 Some(False) => self.push(false.into()),
+                Some(Pop) => {
+                    self.pop();
+                }
                 Some(Equal) => {
                     let rhs = self.pop();
                     let lhs = self.pop();
@@ -135,10 +142,10 @@ impl<'a> VmWithChunk<'a> {
                         self.runtime_error("Operand must be a number")?;
                     }
                 }
+                Some(Print) => {
+                    println!("{}", self.pop());
+                }
                 Some(Return) => {
-                    let return_value = self.pop();
-                    println!("{return_value}");
-
                     return Ok(());
                 }
                 None => panic!("fetched invalid opcode at {}", current_ip!(self)),

@@ -154,6 +154,21 @@ impl<'a> Parser<'a> {
         self.error_at_current(message);
     }
 
+    /// Return true if the current token is equal to the given token.
+    fn check(&self, token: Token) -> bool {
+        self.current.token() == token
+    }
+
+    /// Scan the next token. Advances if the token matches `desired_token`. Returns whether
+    /// `desired_token` was matched.
+    fn match_and_advance(&mut self, desired_token: Token) -> bool {
+        if self.check(desired_token) {
+            self.advance();
+            return true;
+        }
+        false
+    }
+
     /// Emit a compiler error, located at the previous [Lexeme]. In Pratt parsing, this is the
     /// handler you usually want to call, because the previous lexeme decided which [ParserRule]
     /// was accepted.
@@ -187,6 +202,37 @@ impl<'a> Parser<'a> {
         }
         eprintln!(": {message}");
     }
+
+    /// Synchronize after being in panic mode.
+    ///
+    /// The heuristic is that we're going to gobble up and discard tokens until we **think** we're
+    /// a point that makes sense in the grammar. Points that make sense in a grammar are the start
+    /// of statements (statement boundaries). We could be wrong!
+    ///
+    /// Note: this is not a fool-proof heuristic, but we're implementing it anyway!
+    fn synchronize(&mut self) {
+        // TODO: Eddie, your research is all about avoiding cascading errors. What should we do
+        // instead of creating cascading errors. Perhaps read Diekmann & Tratt 2020.
+
+        self.panic_mode = false;
+        while self.current.token() != Token::Eof {
+            if self.previous.token() == Token::Semicolon {
+                return;
+            }
+
+            match self.current.token() {
+                Token::Class
+                | Token::Fun
+                | Token::Var
+                | Token::For
+                | Token::If
+                | Token::While
+                | Token::Print
+                | Token::Return => return,
+                _ => (), // continue panicing
+            }
+        }
+    }
 }
 
 impl<'a> Compiler<'a> {
@@ -199,9 +245,9 @@ impl<'a> Compiler<'a> {
 
     /// Takes ownership of the compiler, and returns the chunk
     fn compile(mut self) -> crate::Result<Chunk> {
-        self.expression();
-        self.parser
-            .consume(Token::Eof, "Expected end of expression");
+        while !self.match_and_advance(Token::Eof) {
+            self.declaration();
+        }
         self.end_compiler();
 
         if self.parser.had_error {
@@ -257,6 +303,47 @@ impl<'a> Compiler<'a> {
     /// Parse an expression.
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
+    }
+
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.parser.consume(
+            Token::Semicolon,
+            // A better error message would highlight the statement,
+            // then show where the semicolon is PROBABLY missing.
+            "expected semicolon to end this statement",
+        );
+        // Expressions have 0 stack effect, meaning they can't leave anything on the stack.
+        // Expressions produce a thing on the stack, and we need to get rid of it!
+        self.emit_instruction(OpCode::Pop);
+    }
+
+    /// Parse a declaration.
+    fn declaration(&mut self) {
+        self.statement();
+
+        if self.parser.panic_mode {
+            self.parser.synchronize();
+        }
+    }
+
+    /// Parse a statement.
+    fn statement(&mut self) {
+        if self.match_and_advance(Token::Print) {
+            self.print_statement();
+        } else {
+            self.expression_statement();
+        }
+    }
+
+    /// Parse a print statement. Assumes `print` has already been consumed.
+    fn print_statement(&mut self) {
+        self.expression();
+        self.parser.consume(
+            Token::Semicolon,
+            "expected semicolon to end print statement",
+        );
+        self.emit_instruction(OpCode::Print);
     }
 
     /// Appends [OpCode::Return] to current [Chunk].
@@ -321,6 +408,12 @@ impl<'a> Compiler<'a> {
     #[inline(always)]
     fn line_number_of_prefix(&self) -> usize {
         self.parser.previous.line()
+    }
+
+    /// Delegates to [Parser::match_and_advance]. Returns true if the token was matched.
+    #[inline(always)]
+    fn match_and_advance(&mut self, desired_token: Token) -> bool {
+        self.parser.match_and_advance(desired_token)
     }
 
     /// Returns the token of the prefix in the process of being parsed.
