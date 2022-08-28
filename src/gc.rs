@@ -1,12 +1,14 @@
 //! A garbage collector (GC) that pretends to have a `'static` lifetime.  Normally "GC" stands for
 //! "garbage collector", but in this codebase, "GC" just stands for "garbage" 🙃
 
+use std::collections::HashSet;
+
 /// A garbage collector, which is really more of a big store of all dynamic data in the
 /// application. For now, it's just string data, and there is no reference counting so all strings
 /// are kept forever until the GC is dropped. Right now it literally collects garbage. Forever 😇
 #[derive(Clone, Debug, Default)]
 pub struct GC {
-    strings: Vec<String>,
+    strings: HashSet<String>,
 }
 
 /// A token that indicates that the global static [GC] has been installed. The only way to obtain
@@ -34,9 +36,12 @@ static mut ACTIVE_GC: Option<GC> = None;
 
 impl GC {
     /// Adds a string to storage. Returns a reference to the stored string.
-    pub fn store_string(&mut self, s: String) -> &str {
-        self.strings.push(s);
-        self.strings.ref_to_last_item().unwrap()
+    pub fn store_string(&mut self, owned: String) -> &str {
+        // HACK: with the current HashMap/HashSet API, I cannot figure out how to do things without
+        // a clone 😭
+        let key = owned.clone();
+        self.strings.insert(owned);
+        self.strings.get(&key).unwrap()
     }
 
     /// Consume self and convert it into the [ActiveGC].
