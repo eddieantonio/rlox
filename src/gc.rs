@@ -1,5 +1,5 @@
-//! Garbage Collector collector (GC) with `'static` lifetime.
-//! Normally "GC" stands for "garbage collector", but in this codebase, it's just "garbage" 🙃
+//! A garbage collector (GC) that pretends to have a `'static` lifetime.  Normally "GC" stands for
+//! "garbage collector", but in this codebase, "GC" just stands for "garbage" 🙃
 
 /// A garbage collector, which is really more of a big store of all dynamic data in the
 /// application. For now, it's just string data, and there is no reference counting so all strings
@@ -33,10 +33,10 @@ pub struct ActiveGC(());
 static mut ACTIVE_GC: Option<GC> = None;
 
 impl GC {
-    /// Adds a string to storage.
+    /// Adds a string to storage. Returns a reference to the stored string.
     pub fn store_string(&mut self, s: String) -> &str {
         self.strings.push(s);
-        self.strings.iter().rev().next().as_ref().unwrap()
+        self.strings.ref_to_last_item().unwrap()
     }
 
     /// Consume self and convert it into the [ActiveGC].
@@ -66,16 +66,18 @@ impl ActiveGC {
         GC::default().into_active_gc()
     }
 
-    /// Get the current active [GC].
-    fn get() -> &'static mut GC {
-        unsafe { &mut ACTIVE_GC }
-            .as_mut()
-            .expect("Tried to get active GC, but it's not installed")
-    }
-
-    // All of these delegate to the active [GC] instance:
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // The following methods these delegate to the active GC instance:
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Store a string in the active [GC].
+    ///
+    /// Returns a reference to the strings storage.
+    ///
+    /// # Warning
+    ///
+    /// Note: the reference does not actually have `'static' lifetime. It lives for as long as the
+    /// [ActiveGC] is installed.
     pub fn store_string(s: String) -> &'static str {
         Self::get().store_string(s)
     }
@@ -83,6 +85,13 @@ impl ActiveGC {
     /// Return how many strings are currently stored.
     pub fn n_strings() -> usize {
         Self::get().n_strings()
+    }
+
+    /// Get the current active [GC].
+    fn get() -> &'static mut GC {
+        unsafe { &mut ACTIVE_GC }
+            .as_mut()
+            .expect("Tried to get active GC, but it's not installed")
     }
 }
 
@@ -95,6 +104,17 @@ impl Drop for ActiveGC {
                 .expect("Trying to drop active GC, but it's not installed")
         };
         // GC dropped here!
+    }
+}
+
+/// Extends [Vec] with more readable methods.
+trait VecExtension<T> {
+    fn ref_to_last_item(&self) -> Option<&T>;
+}
+
+impl<T> VecExtension<T> for Vec<T> {
+    fn ref_to_last_item(&self) -> Option<&T> {
+        self.iter().rev().next()
     }
 }
 
