@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::chunk::BytecodeEntry;
 use crate::compiler;
 use crate::gc::ActiveGC;
 use crate::prelude::{Chunk, InterpretationError, OpCode, Value};
@@ -30,18 +31,6 @@ struct VmWithChunk<'a> {
     globals: HashMap<&'a str, Value>,
     /// We don't access the GC directly, but we need it to live as long as the VM.
     _active_gc: &'a ActiveGC,
-}
-
-/// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
-///
-/// Note: use [current_ip] to get the "current" value of the instruction pointer being executed
-/// right now.
-macro_rules! next_bytecode {
-    ($self: ident, $chunk: ident) => {{
-        let byte = $chunk.get($self.ip);
-        $self.ip += 1;
-        byte
-    }};
 }
 
 /// Gets the value of the current instruction pointer. To be used in conjunction with
@@ -93,13 +82,15 @@ impl<'a> VmWithChunk<'a> {
                 disassemble_instruction(chunk, self.ip);
             }
 
-            let opcode = next_bytecode!(self, chunk)
+            let opcode = self
+                .next_bytecode()
                 .expect("I have an instruction pointer within range")
                 .as_opcode();
 
             match opcode {
                 Some(Constant) => {
-                    let constant = next_bytecode!(self, chunk)
+                    let constant = self
+                        .next_bytecode()
                         .expect("there should be an operand")
                         .resolve_constant()
                         .expect("there should be a constant at this index");
@@ -112,47 +103,29 @@ impl<'a> VmWithChunk<'a> {
                     self.pop();
                 }
                 Some(GetGlobal) => {
-                    let name = next_bytecode!(self, chunk)
-                        .expect("there should be an operand")
-                        .resolve_constant()
-                        .expect("there should be a constant here")
-                        .to_str()
-                        .expect("the name must be a string");
-
+                    let name = self.next_string_constant();
                     match self.globals.get(name) {
                         Some(&value) => self.push(value),
                         None => {
                             let message = format!("undefined global variable: {name}");
-                            self.runtime_error(&message)?
+                            self.runtime_error(&message)?;
                         }
                     };
                 }
                 Some(DefineGlobal) => {
-                    let name = next_bytecode!(self, chunk)
-                        .expect("there should be an operand")
-                        .resolve_constant()
-                        .expect("there should be a constant here")
-                        .to_str()
-                        .expect("the name must be a string");
+                    let name = self.next_string_constant();
                     let value = self.pop();
                     self.globals.insert(name, value);
                 }
                 Some(SetGlobal) => {
-                    let name = next_bytecode!(self, chunk)
-                        .expect("there should be an operand")
-                        .resolve_constant()
-                        .expect("there should be a constant here")
-                        .to_str()
-                        .expect("the name must be a string");
-
+                    let name = self.next_string_constant();
                     let value = self.peek(0);
                     if self.globals.insert(name, value).is_none() {
                         // Tried to assign to an undefined global variable.
-
-                        // Clean-up the mess we made:
+                        // First, clean-up the variable we accidentally created...
                         self.globals.remove(name);
 
-                        // Report an error
+                        // THEN, report an error and exit.
                         let message = format!("Undefined variable: '{name}'");
                         self.runtime_error(&message)?;
                     }
@@ -262,5 +235,30 @@ impl<'a> VmWithChunk<'a> {
     #[inline(always)]
     fn reset_stack(&mut self) {
         self.stack.clear()
+    }
+
+    /// Fetches the next bytecode in the chunk, **AND** increments the instruction pointer.
+    ///
+    /// Note: use [current_ip] to get the "current" value of the instruction pointer being executed
+    /// right now.
+    #[inline]
+    fn next_bytecode(&mut self) -> Option<BytecodeEntry<'_>> {
+        let byte = self.chunk.get(self.ip);
+        self.ip += 1;
+        byte
+    }
+
+    /// Fetches the next bytecode in the chunk and use it to index the constant pool. The constant
+    /// pulled out should be a string (such as global variable name).
+    ///
+    /// Note: Like [[next_bytecode]], this advances the instruction pointer.
+    #[inline]
+    fn next_string_constant(&mut self) -> &'static str {
+        self.next_bytecode()
+            .expect("there should be an operand")
+            .resolve_constant()
+            .expect("there should be a constant here")
+            .to_str()
+            .expect("the name must be a string")
     }
 }
