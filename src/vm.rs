@@ -165,8 +165,6 @@ impl<'a> VmWithChunk<'a> {
                 Some(Greater) => self.binary_op(|a, b| a > b)?,
                 Some(Less) => self.binary_op(|a, b| a < b)?,
                 Some(Add) => {
-                    // I'm so sorry about this code 😭😭😭
-                    // TODO: utilize peek() which should return a REFERENCE!
                     let rhs = self.pop();
                     let lhs = self.pop();
 
@@ -250,15 +248,14 @@ impl<'a> VmWithChunk<'a> {
         self.stack.pop().expect("value stack is empty")
     }
 
-    /// Peek the top value on the stack. Just... ignore that argument.
+    /// Peek the nth value on the stack, starting from the top.
+    ///
+    /// # Panics
+    ///
+    /// Panics when trying to get a value to far down the stack.
     #[inline(always)]
-    fn peek(&self, _: usize) -> Value {
-        *self
-            .stack
-            .iter()
-            .rev()
-            .next()
-            .expect("value stack is empty")
+    fn peek(&self, n: usize) -> Value {
+        *self.stack.iter().rev().nth(n).expect("ran off the stack")
     }
 
     /// Clears the stack.
