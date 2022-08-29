@@ -212,7 +212,7 @@ impl<'a> VmWithChunk<'a> {
 
     /// Pops and returns the top [Value] on the value stack.
     ///
-    /// # Panics
+    /// # Panics
     ///
     /// Panics when the value stack is empty. Given well-formed Lox bytecode, a pop cannot occur
     /// when the value stack is empty; therefore the interpreter panics if it is in this state.
@@ -223,7 +223,7 @@ impl<'a> VmWithChunk<'a> {
 
     /// Peek the nth value on the stack, starting from the top.
     ///
-    /// # Panics
+    /// # Panics
     ///
     /// Panics when trying to get a value to far down the stack.
     #[inline(always)]

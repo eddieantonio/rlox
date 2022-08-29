@@ -81,7 +81,7 @@ struct Compiler<'a> {
 impl Precedence {
     /// Returns the next higher level of precedence.
     ///
-    /// # Panics
+    /// # Panics
     ///
     /// Panics if trying to obtain a higher-level of precedence than the maximum,
     /// [Precedence::Primary], which is the precedence of literals and l-values.

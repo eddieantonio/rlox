@@ -166,7 +166,7 @@ impl<'a> Scanner<'a> {
     /// Advances self.current, s.t., self.start < self.current are a reference to the same str.
     /// Returns the next valid char.
     ///
-    /// # Panics
+    /// # Panics
     ///
     /// If this is called at the end of string.
     fn advance(&mut self) -> char {

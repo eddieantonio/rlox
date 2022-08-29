@@ -250,7 +250,7 @@ impl<'a> BytecodeEntry<'a> {
     /// Returns `Some(value)` if the index is a valid entry in the constants pool. `None`
     /// otherwise.
     ///
-    /// # See also
+    /// # See also
     ///
     ///  - [BytecodeEntry::as_constant_index()]
     #[inline]

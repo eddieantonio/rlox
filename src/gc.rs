@@ -80,7 +80,7 @@ impl ActiveGC {
     ///
     /// Returns a reference to the strings storage.
     ///
-    /// # Warning
+    /// # Warning
     ///
     /// Note: the reference does not actually have `'static' lifetime. It lives for as long as the
     /// [ActiveGC] is installed.

@@ -1,6 +1,6 @@
-# I do "test-driven development" by running this whenever files change
+# I do "test-driven development" by running this whenever files change
 #
-# Usage:
+# Usage:
 #    git ls-files | entr -c just tdd
 tdd:
     cargo test

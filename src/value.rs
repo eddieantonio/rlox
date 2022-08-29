@@ -39,7 +39,7 @@ extern crate static_assertions as sa;
 /// assert_eq!("nil", v.to_string());
 /// ```
 ///
-/// # Strings
+/// # Strings
 ///
 /// String data is owned and stored in the current [ActiveGC].  If an [ActiveGC] is not installed,
 /// the process will panic since there is nowhere to store the string data.
