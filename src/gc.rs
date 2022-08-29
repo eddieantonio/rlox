@@ -1,7 +1,26 @@
-//! A garbage collector (GC) that pretends to have a `'static` lifetime.
+//! A garbage collector that pretends to have a `'static` lifetime.
 //!
 //! Normally "GC" stands for "garbage collector", but in this codebase, "GC" just stands for "garbage" 🙃
-
+//!
+//! # Usage
+//!
+//! Things like the compiler and the VM require the global [ActiveGC] to be installed. To do this,
+//! call [ActiveGC::install] and keep its return value in scope!
+//!
+//! ```
+//! # use rlox::value::Value;
+//! use rlox::gc::ActiveGC;
+//! let gc = ActiveGC::install();
+//!
+//! // Now the GC is active and can be used.
+//! assert_eq!(0, ActiveGC::n_strings());
+//!
+//! // Strings in Lox **require** the active GC:
+//! let lox_string: Value = "hello".into();
+//! assert_eq!(1, ActiveGC::n_strings());
+//!
+//! // when `gc` gets dropped (e.g., by going out of scope), the global GC is dropped too.
+//! ```
 use std::collections::HashSet;
 
 /// A garbage collector, which is really more of a big store of all dynamic data in the
@@ -15,21 +34,10 @@ pub struct GC {
 /// A token that indicates that the global static [GC] has been installed. The only way to obtain
 /// this token is to install the GC somehow (for example, by calling [ActiveGC::install]).
 /// When this token is dropped, the global static GC will be uninstalled and dropped.
-///
-/// ```
-/// # use rlox::gc::ActiveGC;
-/// # use rlox::value::Value;
-/// let gc = ActiveGC::install();
-///
-/// // Now the GC is active and can be used.
-/// assert_eq!(0, ActiveGC::n_strings());
-///
-/// // Strings in Lox **require** the active GC:
-/// let lox_string: Value = "hello".into();
-/// assert_eq!(1, ActiveGC::n_strings());
-/// // when the gc gets dropped (goes out of scope), the GC is automatically uninstalled.
-/// ```
+// No doctests because it will cause a ✨race condition✨
 #[derive(Debug)]
+// The private () parameter is used to prevent anything but this module from instantiating an
+// ActiveGC. This is because only ActiveGC::install() should make an ActiveGC come into existence.
 pub struct ActiveGC(());
 
 /// The actual static (global) [GC] instance. Install with `into_active_gc()`.
@@ -47,7 +55,7 @@ impl GC {
 
     /// Consume self and convert it into the [ActiveGC].
     #[must_use]
-    pub fn into_active_gc(self) -> ActiveGC {
+    fn into_active_gc(self) -> ActiveGC {
         unsafe {
             ACTIVE_GC = Some(self);
         }
@@ -55,7 +63,7 @@ impl GC {
     }
 
     /// Return how many strings are currently stored.
-    fn n_strings(&self) -> usize {
+    pub fn n_strings(&self) -> usize {
         self.strings.len()
     }
 }
@@ -65,8 +73,8 @@ impl ActiveGC {
     ///
     /// # Panics
     ///
-    /// Only one [GC] instance can be active at a time. The process panics
-    /// **non-deterministically** if you try to install a [GC] while one is already installed.
+    /// Only one [GC] instance can be active at a time. It is ✨undefined behaviour✨ if you call this
+    /// while an existing [GC] is already installed.
     #[must_use]
     pub fn install() -> ActiveGC {
         GC::default().into_active_gc()
@@ -82,7 +90,7 @@ impl ActiveGC {
     ///
     /// # Warning
     ///
-    /// Note: the reference does not actually have `'static' lifetime. It lives for as long as the
+    /// Note: the reference does not actually have `'static` lifetime. It lives for as long as the
     /// [ActiveGC] is installed.
     pub fn store_string(s: String) -> &'static str {
         Self::get().store_string(s)

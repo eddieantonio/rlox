@@ -28,7 +28,7 @@
 //!
 //! - Token, in this code it's a [Lexeme].
 //! - TokenType, in this code it's a [Token].
-//! - lexme, in this code it's [Lexeme::text()].
+//! - `.lexeme`, in this code it's [Lexeme::text()].
 
 /// A lexme from one contiguous string from some Lox source code.
 #[derive(Clone, Debug)]
