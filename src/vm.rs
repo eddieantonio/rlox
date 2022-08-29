@@ -137,6 +137,26 @@ impl<'a> VmWithChunk<'a> {
                     let value = self.pop();
                     self.globals.insert(name, value);
                 }
+                Some(SetGlobal) => {
+                    let name = next_bytecode!(self, chunk)
+                        .expect("there should be an operand")
+                        .resolve_constant()
+                        .expect("there should be a constant here")
+                        .to_str()
+                        .expect("the name must be a string");
+
+                    let value = self.peek(0);
+                    if self.globals.insert(name, value).is_none() {
+                        // Tried to assign to an undefined global variable.
+
+                        // Clean-up the mess we made:
+                        self.globals.remove(name);
+
+                        // Report an error
+                        let message = format!("Undefined variable: '{name}'");
+                        self.runtime_error(&message)?;
+                    }
+                }
                 Some(Equal) => {
                     let rhs = self.pop();
                     let lhs = self.pop();
@@ -228,6 +248,17 @@ impl<'a> VmWithChunk<'a> {
     #[inline(always)]
     fn pop(&mut self) -> Value {
         self.stack.pop().expect("value stack is empty")
+    }
+
+    /// Peek the top value on the stack. Just... ignore that argument.
+    #[inline(always)]
+    fn peek(&self, _: usize) -> Value {
+        *self
+            .stack
+            .iter()
+            .rev()
+            .next()
+            .expect("value stack is empty")
     }
 
     /// Clears the stack.

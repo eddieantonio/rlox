@@ -55,7 +55,7 @@ struct ParserRule {
 
 /// Any possible action taken from the parsing table. Actions take the entire compiler state, and
 /// convert it, usually emitting bytecode.
-type ParserFn = fn(&mut Compiler) -> ();
+type ParserFn = fn(&mut Compiler, bool) -> ();
 
 /// Contains the parser state. For some strange reason, this also includes error status.
 ///
@@ -276,9 +276,12 @@ impl<'a> Compiler<'a> {
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
 
+        let can_assign = precedence <= Precedence::Assignment;
+
         // First, figure out how to parse the prefix.
+        // TODO: rename to prefix_rule
         if let Some(parse_prefix) = self.rule_from_previous().prefix {
-            parse_prefix(self);
+            parse_prefix(self, can_assign);
         } else {
             // TODO: better error message. This is difficult because we lack
             // state that lets us know how "far off" the token stream is to something that
@@ -296,7 +299,7 @@ impl<'a> Compiler<'a> {
                 .infix
                 .expect("a rule with a defined precedence must always have an infix rule");
 
-            infix_rule(self);
+            infix_rule(self, can_assign);
         }
     }
 
@@ -316,9 +319,20 @@ impl<'a> Compiler<'a> {
             .with_operand(global);
     }
 
-    fn named_variable(&mut self, lexeme: Lexeme) {
+    fn named_variable(&mut self, lexeme: Lexeme, can_assign: bool) {
         let arg = self.identifier_constant(lexeme);
-        self.emit_instruction(OpCode::GetGlobal).with_operand(arg);
+
+        // Peek ahead and look if we're assigning.
+        // This only works if we're parsing at a lower or equal precedence to assignment.
+        if can_assign && self.match_and_advance(Token::Equal) {
+            // We're in an assignment expression!
+            // Parse the right-hand side:
+            self.expression();
+            self.emit_instruction(OpCode::SetGlobal).with_operand(arg);
+        } else {
+            // A reference to a variable.
+            self.emit_instruction(OpCode::GetGlobal).with_operand(arg);
+        }
     }
 
     /// Parse a declaration.
@@ -539,7 +553,7 @@ fn get_rule(token: Token) -> ParserRule {
 }
 
 /// Parse '(' as a prefix. Assumes '(' has been consumed.
-fn grouping(compiler: &mut Compiler) {
+fn grouping(compiler: &mut Compiler, _can_assign: bool) {
     debug_assert_eq!(Token::LeftParen, compiler.previous_token());
     compiler.expression();
     compiler
@@ -548,7 +562,7 @@ fn grouping(compiler: &mut Compiler) {
 }
 
 /// Parse a number literal as a prefix. Assumes number has been consumed.
-fn number(compiler: &mut Compiler) {
+fn number(compiler: &mut Compiler, _can_assign: bool) {
     debug_assert_eq!(Token::Number, compiler.previous_token());
     let value = compiler
         .parser
@@ -560,7 +574,7 @@ fn number(compiler: &mut Compiler) {
 }
 
 /// Parse an unary operator as a prefix. Assumes the operator has been consumed.
-fn unary(compiler: &mut Compiler) {
+fn unary(compiler: &mut Compiler, _can_assign: bool) {
     let operator = compiler.previous_token();
 
     // Compile the operand, so that it's placed on the stack.
@@ -574,7 +588,7 @@ fn unary(compiler: &mut Compiler) {
 }
 
 /// Parse a binary operator as an infix. Assumes the operator has been consumed.
-fn binary(compiler: &mut Compiler) {
+fn binary(compiler: &mut Compiler, _can_assign: bool) {
     let operator = compiler.previous_token();
     let rule = get_rule(operator);
 
@@ -595,7 +609,7 @@ fn binary(compiler: &mut Compiler) {
 }
 
 /// Parse a keyword literal as a prefix. Assumes the keyword has been consumed.
-fn literal(compiler: &mut Compiler) {
+fn literal(compiler: &mut Compiler, _can_assign: bool) {
     match compiler.previous_token() {
         Token::False => compiler.emit_instruction(OpCode::False),
         Token::Nil => compiler.emit_instruction(OpCode::Nil),
@@ -604,7 +618,7 @@ fn literal(compiler: &mut Compiler) {
     };
 }
 
-fn string(compiler: &mut Compiler) {
+fn string(compiler: &mut Compiler, _can_assign: bool) {
     debug_assert_eq!(Token::StrLiteral, compiler.previous_token());
 
     let literal = compiler.parser.previous.text();
@@ -617,8 +631,8 @@ fn string(compiler: &mut Compiler) {
     compiler.emit_constant(contents.into());
 }
 
-fn variable(compiler: &mut Compiler) {
-    compiler.named_variable(compiler.parser.previous.clone());
+fn variable(compiler: &mut Compiler, can_assign: bool) {
+    compiler.named_variable(compiler.parser.previous.clone(), can_assign);
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////

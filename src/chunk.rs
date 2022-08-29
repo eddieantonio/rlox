@@ -41,13 +41,18 @@ with_try_from_u8! {
         /// Pops the the top of the stack, discarding it forever.
         Pop,
 
+        // Opcodes for dealing with global variables
         /// Uses the operand to the constant pool to find the global name;
-        /// Pushs the value of the global onto the stack.
+        /// Pushes the value of the global onto the stack.
         GetGlobal,
         /// Uses the operand to the constant pool to find the global name;
         /// Pops the top of the stack and assigns it to the global variable indicated by the
         /// operand.
         DefineGlobal,
+        /// Uses the operand to the constant pool to find the global name;
+        /// Pops the top of the stack and assigns it to the global variable.
+        /// The global variable must already exist.
+        SetGlobal,
 
         // Opcodes for expressions and operations
         /// Pops RHS, then LHS; pushes LHS == RHS on to the stack.
