@@ -114,6 +114,8 @@ impl ParserRule {
 }
 
 impl<'a> Parser<'a> {
+    /// Creates a new parser for the given source code.
+    /// Note that parsing string literals requires an active GC.
     fn new(source: &'a str, active_gc: &'a ActiveGC) -> Parser<'a> {
         let mut scanner = Scanner::new(source);
         let first_token = scanner.scan_token();
@@ -236,6 +238,7 @@ impl<'a> Parser<'a> {
 }
 
 impl<'a> Compiler<'a> {
+    /// Creates a new compiler with the given [Parser].
     fn new(parser: Parser) -> Compiler {
         Compiler {
             parser,
@@ -303,22 +306,27 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    /// Add the identifier text to the current chunk's constants table.
     fn identifier_constant(&mut self, lexeme: Lexeme) -> u8 {
         self.make_constant(lexeme.text().into())
     }
 
+    /// Consume the next identifer and interpret it as a variable.
+    /// Returns the constant for the indentifier name.
     fn parse_variable(&mut self, error_message: &'static str) -> u8 {
         self.parser.consume(Token::Identifier, error_message);
-        // XXX: what is happening here?
         let lexeme = self.parser.previous.clone();
         self.identifier_constant(lexeme)
     }
 
+    /// Define a new global variable.
     fn define_variable(&mut self, global: u8) {
         self.emit_instruction(OpCode::DefineGlobal)
             .with_operand(global);
     }
 
+    /// Parse a variable. This could either be a variable access or an assignment, depending on
+    /// `can_assign` and the syntactic context.
     fn named_variable(&mut self, lexeme: Lexeme, can_assign: bool) {
         let arg = self.identifier_constant(lexeme);
 
@@ -618,9 +626,11 @@ fn literal(compiler: &mut Compiler, _can_assign: bool) {
     };
 }
 
+/// Parse a string literal. Add it to the constant pool.
 fn string(compiler: &mut Compiler, _can_assign: bool) {
     debug_assert_eq!(Token::StrLiteral, compiler.previous_token());
 
+    // Access the string contents (without the quotes)
     let literal = compiler.parser.previous.text();
     debug_assert!(literal.len() >= 2);
     debug_assert!(literal.starts_with('"'));
@@ -631,6 +641,8 @@ fn string(compiler: &mut Compiler, _can_assign: bool) {
     compiler.emit_constant(contents.into());
 }
 
+/// Parse a variable. It can be either a variable access or assignment, which is why `can_assign`
+/// is required by all callbacks!
 fn variable(compiler: &mut Compiler, can_assign: bool) {
     compiler.named_variable(compiler.parser.previous.clone(), can_assign);
 }

@@ -1,5 +1,6 @@
-//! A garbage collector (GC) that pretends to have a `'static` lifetime.  Normally "GC" stands for
-//! "garbage collector", but in this codebase, "GC" just stands for "garbage" 🙃
+//! A garbage collector (GC) that pretends to have a `'static` lifetime.
+//!
+//! Normally "GC" stands for "garbage collector", but in this codebase, "GC" just stands for "garbage" 🙃
 
 use std::collections::HashSet;
 
@@ -112,8 +113,9 @@ impl Drop for ActiveGC {
     }
 }
 
-/// Extends [Vec] with more readable methods.
+/// Extends [Vec] with one (1) readable method.
 trait VecExtension<T> {
+    /// Returns a reference to the last entry added.
     fn ref_to_last_item(&self) -> Option<&T>;
 }
 
