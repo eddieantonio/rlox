@@ -1,5 +1,7 @@
 //! Representation of values in Lox.
 
+use std::hash::{Hash, Hasher};
+
 use crate::gc::ActiveGC;
 
 extern crate static_assertions as sa;
@@ -54,7 +56,7 @@ extern crate static_assertions as sa;
 /// assert_eq!(false, v.is_falsy());
 /// // _gc will be dropped, deallocating the GC and all strings it owns
 /// ```
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone)]
 pub enum Value {
     /// Nil. Doing anything with this is usually an error.
     #[default]
@@ -140,6 +142,54 @@ impl std::fmt::Display for Value {
     }
 }
 
+impl std::cmp::PartialEq for Value {
+    fn eq(&self, rhs: &Value) -> bool {
+        use Value::*;
+        match (self, rhs) {
+            (Nil, Nil) => true,
+            (Boolean(a), Boolean(b)) => a == b,
+            (Number(a), Number(b)) => compare_with_nans_eq(*a, *b),
+            (LoxString(a), LoxString(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl std::cmp::Eq for Value {}
+
+union FloatPun {
+    as_float: f64,
+    as_bits: u64,
+}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match *self {
+            Value::Nil => 0.hash(state),
+            Value::LoxString(s) => s.hash(state),
+            Value::Boolean(b) => b.hash(state),
+            Value::Number(num) => {
+                if num.is_nan() {
+                    u64::MAX.hash(state)
+                } else {
+                    let pun = FloatPun { as_float: num };
+                    unsafe { pun.as_bits }.hash(state)
+                }
+            }
+        }
+    }
+}
+
+/// Compares floats, but, unlike IEEE 754, NaNs are considered equal.
+fn compare_with_nans_eq(a: f64, b: f64) -> bool {
+    match (a.is_nan(), b.is_nan()) {
+        (false, false) => a == b,
+        (false, true) => false,
+        (true, false) => false,
+        (true, true) => true,
+    }
+}
+
 // Convert any Rust float into a Lox value.
 impl From<f64> for Value {
     #[inline(always)]
@@ -209,5 +259,32 @@ impl ValueArray {
     /// Returns true if there are no values.
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_hash() {
+        use std::collections::HashMap;
+        // Values break the rules of floats for the purpose of being hashable, so check that it
+        // actually works!.
+        let mut set: HashMap<Value, String> = HashMap::default();
+
+        let zero: Value = 0.0.into();
+        let one: Value = 1.0.into();
+        set.insert(zero, "zero".to_owned());
+        set.insert(one, "one".to_owned());
+        assert_eq!(2, set.len());
+
+        assert!(set.contains_key(&0.0.into()));
+        assert!(set.contains_key(&1.0.into()));
+        assert!(!set.contains_key(&f64::NAN.into()));
+
+        let nan: Value = f64::NAN.into();
+        set.insert(nan, "NaN".to_owned());
+        assert_eq!("NaN".to_owned(), *set.get(&f64::NAN.into()).unwrap());
     }
 }
