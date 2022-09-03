@@ -1,4 +1,7 @@
 //! Contains the Lox parser and bytecode compiler.
+
+use std::collections::HashMap;
+
 use crate::chunk::WrittenOpcode;
 use crate::gc::ActiveGC;
 use crate::prelude::*;
@@ -76,6 +79,7 @@ struct Parser<'a> {
 struct Compiler<'a> {
     parser: Parser<'a>,
     compiling_chunk: Chunk,
+    constants: HashMap<Value, u8>,
 }
 
 impl Precedence {
@@ -243,6 +247,7 @@ impl<'a> Compiler<'a> {
         Compiler {
             parser,
             compiling_chunk: Chunk::default(),
+            constants: HashMap::default(),
         }
     }
 
@@ -429,7 +434,14 @@ impl<'a> Compiler<'a> {
     /// u8), this signals a compiler error and returns `0u8`. The current [Chunk] can still be
     /// appended to, however, it is invalid, and should not be emitted as a valid program.
     fn make_constant(&mut self, value: Value) -> u8 {
+        // Get from cache first:
+        if let Some(index) = self.constants.get(&value) {
+            // Retrieve from cache:
+            return *index;
+        }
+
         if let Some(index) = self.current_chunk().add_constant(value) {
+            self.constants.insert(value, index);
             index
         } else {
             self.parser.error("Too many constants in one chunk");
