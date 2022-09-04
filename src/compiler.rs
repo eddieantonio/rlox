@@ -1,5 +1,6 @@
 //! Contains the Lox parser and bytecode compiler.
 use crate::chunk::WrittenOpcode;
+use crate::extension_traits::VecLast;
 use crate::gc::ActiveGC;
 use crate::prelude::*;
 
@@ -304,9 +305,7 @@ impl<'a> Compiler<'a> {
         self.scope_depth -= 1;
 
         // Clean up all local variables
-        while self.local_count > 0
-            && self.locals.iter().rev().next().unwrap().depth > self.scope_depth
-        {
+        while self.local_count > 0 && self.locals.last().unwrap().depth > self.scope_depth {
             self.emit_instruction(OpCode::Pop);
             self.locals.pop();
             self.local_count -= 1;
@@ -428,7 +427,7 @@ impl<'a> Compiler<'a> {
 
     /// Mark the last local as being initiailized.
     fn mark_initialized(&mut self) {
-        let local = self.locals.iter_mut().rev().next().unwrap();
+        let local = self.locals.last_mut().unwrap();
         debug_assert_eq!(-1, local.depth);
         local.depth = self.scope_depth;
     }

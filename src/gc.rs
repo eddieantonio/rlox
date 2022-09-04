@@ -23,8 +23,6 @@
 //! ```
 use std::collections::HashSet;
 
-use crate::extension_traits::VecLast;
-
 /// A garbage collector, which is really more of a big store of all dynamic data in the
 /// application. For now, it's just string data, and there is no reference counting so all strings
 /// are kept forever until the GC is dropped. Right now it literally collects garbage. Forever 😇
