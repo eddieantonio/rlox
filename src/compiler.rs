@@ -655,17 +655,10 @@ impl<'a> Local<'a> {
         self.depth.is_none()
     }
 
+    /// Returns true when the local is in an outer scope (thus, is accessible).
     #[inline(always)]
     fn in_outer_scope(&self, scope_depth: isize) -> bool {
-        match self.depth {
-            Some(depth) if depth < scope_depth => true,
-            _ => false,
-        }
-    }
-
-    #[inline(always)]
-    fn is_initialized(&self) -> bool {
-        self.depth.is_some()
+        matches!(self.depth, Some(depth) if depth < scope_depth)
     }
 
     fn text(&self) -> &'a str {
