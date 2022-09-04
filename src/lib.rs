@@ -15,6 +15,7 @@ pub mod scanner;
 pub mod value;
 pub mod vm;
 
+mod extension_traits;
 mod with_try_from_u8;
 
 /// The type returned by various functions that parse, compile, and run Lox code.

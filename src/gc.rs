@@ -23,6 +23,8 @@
 //! ```
 use std::collections::HashSet;
 
+use crate::extension_traits::VecLast;
+
 /// A garbage collector, which is really more of a big store of all dynamic data in the
 /// application. For now, it's just string data, and there is no reference counting so all strings
 /// are kept forever until the GC is dropped. Right now it literally collects garbage. Forever 😇
@@ -118,18 +120,6 @@ impl Drop for ActiveGC {
                 .expect("Trying to drop active GC, but it's not installed")
         };
         // GC dropped here!
-    }
-}
-
-/// Extends [Vec] with one (1) readable method.
-trait VecExtension<T> {
-    /// Returns a reference to the last entry added.
-    fn ref_to_last_item(&self) -> Option<&T>;
-}
-
-impl<T> VecExtension<T> for Vec<T> {
-    fn ref_to_last_item(&self) -> Option<&T> {
-        self.iter().rev().next()
     }
 }
 
