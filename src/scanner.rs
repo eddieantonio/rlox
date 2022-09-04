@@ -31,7 +31,7 @@
 //! - `.lexeme`, in this code it's [Lexeme::text()].
 
 /// A lexme from one contiguous string from some Lox source code.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Lexeme<'a> {
     /// The [Token] of this lexeme.
     token: Token,

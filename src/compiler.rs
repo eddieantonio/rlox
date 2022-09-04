@@ -15,10 +15,21 @@ pub fn compile(source: &str, gc: &'_ ActiveGC) -> crate::Result<Chunk> {
 
 ///////////////////////////////////// Implementation details //////////////////////////////////////
 
+const U8_COUNT: usize = u8::MAX as usize + 1;
+
 /// Contains the compiler state, which includes the [Parser] and the current chunk being produced.
 struct Compiler<'a> {
     parser: Parser<'a>,
     compiling_chunk: Chunk,
+    locals: Vec<Local<'a>>,
+    local_count: usize,
+    scope_depth: isize,
+}
+
+#[derive(Clone)]
+struct Local<'a> {
+    name: Lexeme<'a>,
+    depth: isize,
 }
 
 /// Contains the parser state. For some strange reason, this also includes error status.
@@ -137,7 +148,7 @@ impl<'a> Parser<'a> {
     /// Update self.previous and self.current such that they move one token further in the token
     /// stream.
     fn advance(&mut self) {
-        self.previous = self.current.clone();
+        self.previous = self.current;
 
         // Get tokens until we get a non-error token.
         loop {
@@ -246,6 +257,9 @@ impl<'a> Compiler<'a> {
         Compiler {
             parser,
             compiling_chunk: Chunk::default(),
+            locals: Vec::with_capacity(U8_COUNT),
+            local_count: 0,
+            scope_depth: 0,
         }
     }
 
@@ -273,6 +287,29 @@ impl<'a> Compiler<'a> {
         // Print a listing of the bytecode to manually inspect compiled output.
         if cfg!(feature = "print_code") && !self.parser.had_error {
             crate::debug::disassemble_chunk(self.current_chunk(), "code");
+        }
+    }
+
+    /// Create a new block scope. Make sure to decrement it later.
+    // Note: could return a Scope object that is must_use and when dropped,
+    // decrements the counter. It would require interior mutability, however, and would be
+    // needlessly complicated.
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    /// Pop one scope from the block.
+    fn end_scope(&mut self) {
+        assert!(self.scope_depth > 0);
+        self.scope_depth -= 1;
+
+        // Clean up all local variables
+        while self.local_count > 0
+            && self.locals.iter().rev().next().unwrap().depth > self.scope_depth
+        {
+            self.emit_instruction(OpCode::Pop);
+            self.locals.pop();
+            self.local_count -= 1;
         }
     }
 
@@ -314,24 +351,111 @@ impl<'a> Compiler<'a> {
         self.make_constant(lexeme.text().into())
     }
 
+    /// Finds the index in the call stack for a local, or returns None if it's not a local (either
+    /// a global or a mistake).
+    fn resolve_local(&mut self, name: Lexeme) -> Option<u8> {
+        for (i, local) in self.locals.iter().enumerate().rev() {
+            if local.text() == name.text() {
+                if local.depth == -1 {
+                    let message = format!("Cannot use `{}` in its own initializer", name.text());
+                    self.parser.error(&message);
+                }
+                return u8::try_from(i).ok();
+            }
+        }
+        None
+    }
+
+    /// Indicate that we need a slot for another local variable.
+    fn declare_variable(&mut self) {
+        if self.scope_depth == 0 {
+            // Global variables don't need to be "declared"
+            return;
+        }
+
+        let name = self.parser.previous;
+
+        // Check whether we're redefining elements in the local scope:
+        for local in self.locals.iter().rev() {
+            if local.depth != -1 && local.depth < self.scope_depth {
+                // It's okay to shadow a variable from an outer scope.
+                break;
+            }
+
+            // We're in the same scope...
+            if name.text() == local.text() {
+                // Two variables with the same name in the same scope!
+                let message = format!("Already a variable called `{}` in this scope", name.text());
+                self.parser.error(&message);
+            }
+        }
+
+        self.add_local(name);
+    }
+
+    fn add_local(&mut self, name: Lexeme<'a>) {
+        if self.local_count >= U8_COUNT {
+            self.parser
+                .error("Internal limit reached: too many variables declared");
+            return;
+        }
+
+        assert_eq!(Token::Identifier, name.token());
+        let local = Local {
+            name,
+            // TODO: use an enum here instead of a sentinel value
+            depth: -1,
+        };
+        // TODO: can elide this by delegating to Vec::len()
+        self.local_count += 1;
+        self.locals.push(local);
+    }
+
     /// Consume the next identifer and interpret it as a variable.
     /// Returns the constant for the indentifier name.
+    // TODO: could return Option<u8> to indicate global or local scope
     fn parse_variable(&mut self, error_message: &'static str) -> u8 {
         self.parser.consume(Token::Identifier, error_message);
-        let lexeme = self.parser.previous.clone();
-        self.identifier_constant(lexeme)
+
+        self.declare_variable();
+        if self.scope_depth > 0 {
+            // In a local scope.
+            return 0;
+        }
+
+        self.identifier_constant(self.parser.previous)
+    }
+
+    /// Mark the last local as being initiailized.
+    fn mark_initialized(&mut self) {
+        let local = self.locals.iter_mut().rev().next().unwrap();
+        debug_assert_eq!(-1, local.depth);
+        local.depth = self.scope_depth;
     }
 
     /// Define a new global variable.
     fn define_variable(&mut self, global: u8) {
+        if self.scope_depth > 0 {
+            // Local variables do not need to be defined globally.
+            self.mark_initialized();
+            return;
+        }
+
         self.emit_instruction(OpCode::DefineGlobal)
             .with_operand(global);
     }
 
     /// Parse a variable. This could either be a variable access or an assignment, depending on
     /// `can_assign` and the syntactic context.
-    fn named_variable(&mut self, lexeme: Lexeme, can_assign: bool) {
-        let arg = self.identifier_constant(lexeme);
+    fn named_variable(&mut self, name: Lexeme, can_assign: bool) {
+        let (get_op, set_op, arg) = {
+            if let Some(arg) = self.resolve_local(name) {
+                (OpCode::GetLocal, OpCode::SetLocal, arg)
+            } else {
+                let arg = self.identifier_constant(name);
+                (OpCode::GetGlobal, OpCode::SetGlobal, arg)
+            }
+        };
 
         // Peek ahead and look if we're assigning.
         // This only works if we're parsing at a lower or equal precedence to assignment.
@@ -339,10 +463,10 @@ impl<'a> Compiler<'a> {
             // We're in an assignment expression!
             // Parse the right-hand side:
             self.expression();
-            self.emit_instruction(OpCode::SetGlobal).with_operand(arg);
+            self.emit_instruction(set_op).with_operand(arg);
         } else {
-            // A reference to a variable.
-            self.emit_instruction(OpCode::GetGlobal).with_operand(arg);
+            // A reference to an existing variable.
+            self.emit_instruction(get_op).with_operand(arg);
         }
     }
 
@@ -363,6 +487,10 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_and_advance(Token::Print) {
             self.print_statement();
+        } else if self.match_and_advance(Token::LeftBrace) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }
@@ -371,6 +499,17 @@ impl<'a> Compiler<'a> {
     /// Parse an expression.
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
+    }
+
+    /// Parse a block.
+    /// Assumes a new scope has already been created for this block.
+    fn block(&mut self) {
+        while !self.parser.check(Token::RightBrace) && !self.parser.check(Token::Eof) {
+            self.declaration();
+        }
+
+        self.parser
+            .consume(Token::RightBrace, "expected '}' to end block");
     }
 
     /// Parse a variable declaration. Assumes `var` has already been consumed
@@ -499,6 +638,12 @@ impl<'a> Compiler<'a> {
     #[inline(always)]
     fn previous_token(&self) -> Token {
         self.parser.previous.token()
+    }
+}
+
+impl<'a> Local<'a> {
+    fn text(&self) -> &'a str {
+        self.name.text()
     }
 }
 

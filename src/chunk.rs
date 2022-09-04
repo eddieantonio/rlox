@@ -41,6 +41,13 @@ with_try_from_u8! {
         /// Pops the the top of the stack, discarding it forever.
         Pop,
 
+        // Opcodes for dealing with local variables
+        /// Uses the operand to index into value stack to find a suitable local variable
+        /// and push it onto the stack.
+        GetLocal,
+        /// Pops the top value from the stack and uses the operand to index into value stack,
+        /// and assigns the popped value to the location on the stack.
+        SetLocal,
         // Opcodes for dealing with global variables
         /// Uses the operand to the constant pool to find the global name;
         /// Pushes the value of the global onto the stack.
@@ -230,6 +237,7 @@ impl<'a> BytecodeEntry<'a> {
     ///
     /// This method never fails, as this method does not check whether the index is a _valid_ index
     /// into the constant pool.
+    // TODO: rename this to just "as_index()"
     #[inline(always)]
     pub fn as_constant_index(self) -> usize {
         self.byte as usize

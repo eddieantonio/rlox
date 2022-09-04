@@ -1,0 +1,6 @@
+{
+    var a = "outer";
+    {
+        var a = a; // for a fun time, try this in Ruby, JavaScript, and Python!
+    }
+}

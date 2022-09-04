@@ -38,6 +38,8 @@ pub fn disassemble_instruction(c: &Chunk, offset: usize) -> usize {
         True => simple_instruction("OP_TRUE", offset),
         False => simple_instruction("OP_FALSE", offset),
         Pop => simple_instruction("OP_POP", offset),
+        GetLocal => byte_instruction("OP_GET_LOCAL", c, offset),
+        SetLocal => byte_instruction("OP_SET_LOCAL", c, offset),
         GetGlobal => constant_instruction("OP_GET_GLOBAL", c, offset),
         DefineGlobal => constant_instruction("OP_DEFINE_GLOBAL", c, offset),
         SetGlobal => constant_instruction("OP_SET_GLOBAL", c, offset),
@@ -71,8 +73,17 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
         .resolve_constant_with_index()
         .expect("Invalid constant index");
 
-    println!("{index:4} '{value:?}'");
+    println!(" {index:4} '{value:?}'");
 
+    offset + 2
+}
+
+fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+    let slot = chunk
+        .get(offset + 1)
+        .expect("ran out of bytes")
+        .as_constant_index();
+    println!("{name:>16} {slot:4}");
     offset + 2
 }
 

@@ -102,6 +102,15 @@ impl<'a> VmWithChunk<'a> {
                 Some(Pop) => {
                     self.pop();
                 }
+                Some(GetLocal) => {
+                    let slot = self.next_bytecode().expect("operand").as_constant_index();
+                    self.push(*self.stack.get(slot).expect("local variable"));
+                }
+                Some(SetLocal) => {
+                    let slot = self.next_bytecode().expect("operand").as_constant_index();
+                    let value = self.pop();
+                    self.stack[slot] = value;
+                }
                 Some(GetGlobal) => {
                     let name = self.next_string_constant();
                     match self.globals.get(name) {
