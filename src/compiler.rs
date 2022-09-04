@@ -329,9 +329,8 @@ impl<'a> Compiler<'a> {
         let can_assign = precedence <= Precedence::Assignment;
 
         // First, figure out how to parse the prefix.
-        // TODO: rename to prefix_rule
-        if let Some(parse_prefix) = self.rule_from_previous().prefix {
-            parse_prefix(self, can_assign);
+        if let Some(prefix_rule) = self.rule_from_previous().prefix {
+            prefix_rule(self, can_assign);
         } else {
             // TODO: better error message. This is difficult because we lack
             // state that lets us know how "far off" the token stream is to something that
@@ -435,10 +434,10 @@ impl<'a> Compiler<'a> {
             .initialize_scope_with(self.scope_depth);
     }
 
-    /// Define a new global variable.
+    /// Define a new variable.
     fn define_variable(&mut self, global: u8) {
         if self.scope_depth > 0 {
-            // Local variables do not need to be defined globally.
+            // It's a local variables. Set that it's ready to be used:
             self.mark_initialized();
             return;
         }
