@@ -189,12 +189,12 @@ impl<'a> Parser<'a> {
     /// handler you usually want to call, because the previous lexeme decided which [ParserRule]
     /// was accepted.
     fn error(&mut self, message: &str) {
-        self.error_at(self.previous.clone(), message)
+        self.error_at(self.previous, message)
     }
 
     /// Emit a compiler error, located at the current [Lexeme].
     fn error_at_current(&mut self, message: &str) {
-        self.error_at(self.current.clone(), message)
+        self.error_at(self.current, message)
     }
 
     /// Emit a compiler error, located at the given [Lexeme].
@@ -792,7 +792,7 @@ fn string(compiler: &mut Compiler, _can_assign: bool) {
 /// Parse a variable. It can be either a variable access or assignment, which is why `can_assign`
 /// is required by all callbacks!
 fn variable(compiler: &mut Compiler, can_assign: bool) {
-    compiler.named_variable(compiler.parser.previous.clone(), can_assign);
+    compiler.named_variable(compiler.parser.previous, can_assign);
 }
 
 ////////////////////////////////////////////// Tests //////////////////////////////////////////////
