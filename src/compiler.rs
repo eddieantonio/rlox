@@ -15,6 +15,40 @@ pub fn compile(source: &str, gc: &'_ ActiveGC) -> crate::Result<Chunk> {
 
 ///////////////////////////////////// Implementation details //////////////////////////////////////
 
+/// Contains the compiler state, which includes the [Parser] and the current chunk being produced.
+struct Compiler<'a> {
+    parser: Parser<'a>,
+    compiling_chunk: Chunk,
+}
+
+/// Contains the parser state. For some strange reason, this also includes error status.
+///
+/// The reference to [ActiveGC] is required, but never accessed, because having a reference to it
+/// guarentees that the static (global) garbage collector is installed, We need all this so that
+/// string literals can be owned by the GC for the running program.
+#[derive(Debug)]
+struct Parser<'a> {
+    scanner: Scanner<'a>,
+    current: Lexeme<'a>,
+    previous: Lexeme<'a>,
+    had_error: bool,
+    panic_mode: bool,
+    // We keep a reference to the active GC to make sure it exists, but we don't explicitly use it.
+    _active_gc: &'a ActiveGC,
+}
+
+/// A rule in the Pratt parser table. See [Compiler::parse_precedence()] for usage.
+#[derive(Copy, Clone)]
+struct ParserRule {
+    prefix: Option<ParserFn>,
+    infix: Option<ParserFn>,
+    precedence: Precedence,
+}
+
+/// Any possible action taken from the parsing table. Actions take the entire compiler state, and
+/// convert it, usually emitting bytecode.
+type ParserFn = fn(&mut Compiler, bool) -> ();
+
 /// Precedence rules for [Token]s in Lox.
 ///
 /// Precedence rules have a well-defined partial ordering ([PartialOrd]), which is required for use
@@ -45,38 +79,7 @@ enum Precedence {
     Primary,
 }
 
-/// A rule in the Pratt parser table. See [Compiler::parse_precedence()] for usage.
-#[derive(Copy, Clone)]
-struct ParserRule {
-    prefix: Option<ParserFn>,
-    infix: Option<ParserFn>,
-    precedence: Precedence,
-}
-
-/// Any possible action taken from the parsing table. Actions take the entire compiler state, and
-/// convert it, usually emitting bytecode.
-type ParserFn = fn(&mut Compiler, bool) -> ();
-
-/// Contains the parser state. For some strange reason, this also includes error status.
-///
-/// The reference to [ActiveGC] is required, but never accessed, because having a reference to it
-/// guarentees that the static (global) garbage collector is installed, We need all this so that
-/// string literals can be owned by the GC for the running program.
-#[derive(Debug)]
-struct Parser<'a> {
-    scanner: Scanner<'a>,
-    current: Lexeme<'a>,
-    previous: Lexeme<'a>,
-    had_error: bool,
-    panic_mode: bool,
-    _active_gc: &'a ActiveGC,
-}
-
-/// Contains the compiler state, which includes the [Parser] and the current chunk being produced.
-struct Compiler<'a> {
-    parser: Parser<'a>,
-    compiling_chunk: Chunk,
-}
+///////////////////////////////////////// Implementations /////////////////////////////////////////
 
 impl Precedence {
     /// Returns the next higher level of precedence.
