@@ -362,7 +362,7 @@ impl<'a> Compiler<'a> {
     fn resolve_local(&mut self, name: Lexeme) -> Option<u8> {
         for (i, local) in self.locals.iter().enumerate().rev() {
             if local.text() == name.text() {
-                if local.depth == -1 {
+                if local.is_uninitialized() {
                     let message = format!("Cannot use `{}` in its own initializer", name.text());
                     self.parser.error(&message);
                 }
@@ -383,7 +383,7 @@ impl<'a> Compiler<'a> {
 
         // Check whether we're redefining elements in the local scope:
         for local in self.locals.iter().rev() {
-            if local.depth != -1 && local.depth < self.scope_depth {
+            if local.is_initialized() && local.depth < self.scope_depth {
                 // It's okay to shadow a variable from an outer scope.
                 break;
             }
@@ -433,7 +433,7 @@ impl<'a> Compiler<'a> {
     /// Mark the last local as being initiailized.
     fn mark_initialized(&mut self) {
         let local = self.locals.last_mut().unwrap();
-        debug_assert_eq!(-1, local.depth);
+        debug_assert!(local.is_uninitialized());
         local.depth = self.scope_depth;
     }
 
@@ -652,6 +652,17 @@ impl<'a> Compiler<'a> {
 }
 
 impl<'a> Local<'a> {
+    /// Returns true if the variable is not availble for use yet.
+    #[inline(always)]
+    fn is_uninitialized(&self) -> bool {
+        self.depth == -1
+    }
+
+    #[inline(always)]
+    fn is_initialized(&self) -> bool {
+        !self.is_uninitialized()
+    }
+
     fn text(&self) -> &'a str {
         self.name.text()
     }
