@@ -383,7 +383,7 @@ impl<'a> Compiler<'a> {
 
         // Check whether we're redefining elements in the local scope:
         for local in self.locals.iter().rev() {
-            if local.is_initialized() && local.depth < self.scope_depth {
+            if local.in_outer_scope(self.scope_depth) {
                 // It's okay to shadow a variable from an outer scope.
                 break;
             }
@@ -656,6 +656,11 @@ impl<'a> Local<'a> {
     #[inline(always)]
     fn is_uninitialized(&self) -> bool {
         self.depth == -1
+    }
+
+    #[inline(always)]
+    fn in_outer_scope(&self, scope_depth: isize) -> bool {
+        self.is_initialized() && self.depth < scope_depth
     }
 
     #[inline(always)]
