@@ -429,9 +429,10 @@ impl<'a> Compiler<'a> {
 
     /// Mark the last local as being initiailized.
     fn mark_initialized(&mut self) {
-        let local = self.locals.last_mut().unwrap();
-        debug_assert!(local.is_uninitialized());
-        local.depth = Some(self.scope_depth);
+        self.locals
+            .last_mut()
+            .unwrap()
+            .initialize_scope_with(self.scope_depth);
     }
 
     /// Define a new global variable.
@@ -650,9 +651,18 @@ impl<'a> Compiler<'a> {
 
 impl<'a> Local<'a> {
     /// Returns true if the variable is not availble for use yet.
+    ///
+    /// Use [Local::initialize_scope_with()] to initialize.
     #[inline(always)]
     fn is_uninitialized(&self) -> bool {
         self.depth.is_none()
+    }
+
+    /// Set the scope of this local. Note: the variable must not have an existing scope.
+    #[inline]
+    fn initialize_scope_with(&mut self, scope_depth: isize) {
+        debug_assert!(self.is_uninitialized());
+        self.depth = Some(scope_depth);
     }
 
     /// Returns true when the local is in an outer scope (thus, is accessible).
@@ -661,6 +671,7 @@ impl<'a> Local<'a> {
         matches!(self.depth, Some(depth) if depth < scope_depth)
     }
 
+    /// Return the name of this local.
     fn text(&self) -> &'a str {
         self.name.text()
     }
