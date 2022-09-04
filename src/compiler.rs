@@ -23,7 +23,6 @@ struct Compiler<'a> {
     parser: Parser<'a>,
     compiling_chunk: Chunk,
     locals: Vec<Local<'a>>,
-    local_count: usize,
     scope_depth: isize,
 }
 
@@ -259,7 +258,6 @@ impl<'a> Compiler<'a> {
             parser,
             compiling_chunk: Chunk::default(),
             locals: Vec::with_capacity(U8_COUNT),
-            local_count: 0,
             scope_depth: 0,
         }
     }
@@ -305,10 +303,9 @@ impl<'a> Compiler<'a> {
         self.scope_depth -= 1;
 
         // Clean up all local variables
-        while self.local_count > 0 && self.locals.last().unwrap().depth > self.scope_depth {
+        while self.local_count() > 0 && self.locals.last().unwrap().depth > self.scope_depth {
             self.emit_instruction(OpCode::Pop);
             self.locals.pop();
-            self.local_count -= 1;
         }
     }
 
@@ -393,7 +390,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn add_local(&mut self, name: Lexeme<'a>) {
-        if self.local_count >= U8_COUNT {
+        if self.local_count() >= U8_COUNT {
             self.parser
                 .error("Internal limit reached: too many variables declared");
             return;
@@ -405,8 +402,6 @@ impl<'a> Compiler<'a> {
             // TODO: use an enum here instead of a sentinel value
             depth: -1,
         };
-        // TODO: can elide this by delegating to Vec::len()
-        self.local_count += 1;
         self.locals.push(local);
     }
 
@@ -637,6 +632,12 @@ impl<'a> Compiler<'a> {
     #[inline(always)]
     fn previous_token(&self) -> Token {
         self.parser.previous.token()
+    }
+
+    /// Return how many locals there are in all scopes.
+    #[inline(always)]
+    fn local_count(&self) -> usize {
+        self.locals.len()
     }
 }
 
