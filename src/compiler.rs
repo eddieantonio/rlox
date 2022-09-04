@@ -303,10 +303,20 @@ impl<'a> Compiler<'a> {
         self.scope_depth -= 1;
 
         // Clean up all local variables
-        while self.local_count() > 0 && self.locals.last().unwrap().depth > self.scope_depth {
-            self.emit_instruction(OpCode::Pop);
+        while self.has_locals_beyond_current_scope() {
+            // The compile-time vector of locals will parallel the runtime stack;
+            // so we both pop the compiler's stack AND the runtime stack! 🤯
             self.locals.pop();
+            self.emit_instruction(OpCode::Pop);
         }
+    }
+
+    /// Returns true if there is a local variable at a scope that is no longer accessible.
+    fn has_locals_beyond_current_scope(&self) -> bool {
+        self.locals
+            .last()
+            .map(|local| local.depth > self.scope_depth)
+            .unwrap_or(false)
     }
 
     /// The core of the Pratt parsing algorithm.
