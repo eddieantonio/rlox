@@ -29,7 +29,7 @@ struct Compiler<'a> {
 #[derive(Clone)]
 struct Local<'a> {
     name: Lexeme<'a>,
-    depth: isize,
+    depth: Option<isize>,
 }
 
 /// Contains the parser state. For some strange reason, this also includes error status.
@@ -315,7 +315,8 @@ impl<'a> Compiler<'a> {
     fn has_locals_beyond_current_scope(&self) -> bool {
         self.locals
             .last()
-            .map(|local| local.depth > self.scope_depth)
+            .and_then(|local| local.depth)
+            .map(|depth| depth > self.scope_depth)
             .unwrap_or(false)
     }
 
@@ -407,11 +408,7 @@ impl<'a> Compiler<'a> {
         }
 
         assert_eq!(Token::Identifier, name.token());
-        let local = Local {
-            name,
-            // TODO: use an enum here instead of a sentinel value
-            depth: -1,
-        };
+        let local = Local { name, depth: None };
         self.locals.push(local);
     }
 
@@ -434,7 +431,7 @@ impl<'a> Compiler<'a> {
     fn mark_initialized(&mut self) {
         let local = self.locals.last_mut().unwrap();
         debug_assert!(local.is_uninitialized());
-        local.depth = self.scope_depth;
+        local.depth = Some(self.scope_depth);
     }
 
     /// Define a new global variable.
@@ -655,17 +652,20 @@ impl<'a> Local<'a> {
     /// Returns true if the variable is not availble for use yet.
     #[inline(always)]
     fn is_uninitialized(&self) -> bool {
-        self.depth == -1
+        self.depth.is_none()
     }
 
     #[inline(always)]
     fn in_outer_scope(&self, scope_depth: isize) -> bool {
-        self.is_initialized() && self.depth < scope_depth
+        match self.depth {
+            Some(depth) if depth < scope_depth => true,
+            _ => false,
+        }
     }
 
     #[inline(always)]
     fn is_initialized(&self) -> bool {
-        !self.is_uninitialized()
+        self.depth.is_some()
     }
 
     fn text(&self) -> &'a str {
